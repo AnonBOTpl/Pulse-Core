@@ -27,13 +27,28 @@ export const PlayerControls = () => {
       });
 
       if (selected && typeof selected === "string") {
-        const info = await invoke<TrackMetadata>("load_track_info", { sciezka: selected });
-        setTrackInfo(info);
+        // Natychmiastowe zatrzymanie obecnego utworu i start nowego przy użyciu surowej ścieżki
+        await invoke("zatrzymaj");
+        await invoke("odtwarzaj", { sciezka: selected });
 
-        // Automatyczne zatrzymanie obecnego utworu przy wyborze nowego
-        if (isPlaying) {
-            await handleStop();
-        }
+        setIsPlaying(true);
+        setIsPaused(false);
+
+        // Ładowanie metadanych w tle, aby nie blokować interfejsu
+        invoke<TrackMetadata>("load_track_info", { sciezka: selected })
+          .then((info) => {
+            setTrackInfo(info);
+          })
+          .catch((err) => {
+            console.error("Nie udało się załadować metadanych:", err);
+            // Ustawienie podstawowych informacji w razie błędu
+            setTrackInfo({
+              path: selected,
+              title: null,
+              artist: null,
+              duration: 0
+            });
+          });
       }
     } catch (error) {
       console.error("Błąd podczas wybierania pliku:", error);
