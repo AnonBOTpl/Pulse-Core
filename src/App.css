@@ -71,11 +71,21 @@ h1 {
   color: var(--text-dim);
 }
 
-.file-info span {
-  color: var(--accent-color);
+.track-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.track-title {
+  color: var(--accent-color) !important;
   font-weight: bold;
-  display: block;
-  margin-top: 0.2rem;
+  font-size: 1.1rem !important;
+}
+
+.track-artist {
+  color: var(--text-dim) !important;
+  font-size: 0.9rem !important;
 }
 
 .controls-group {

@@ -2,8 +2,15 @@ import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
+interface TrackMetadata {
+  path: string;
+  title: string | null;
+  artist: string | null;
+  duration: number;
+}
+
 export const PlayerControls = () => {
-  const [currentFile, setCurrentFile] = useState<string | null>(null);
+  const [trackInfo, setTrackInfo] = useState<TrackMetadata | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
 
@@ -20,7 +27,9 @@ export const PlayerControls = () => {
       });
 
       if (selected && typeof selected === "string") {
-        setCurrentFile(selected);
+        const info = await invoke<TrackMetadata>("load_track_info", { sciezka: selected });
+        setTrackInfo(info);
+
         // Automatyczne zatrzymanie obecnego utworu przy wyborze nowego
         if (isPlaying) {
             await handleStop();
@@ -32,14 +41,14 @@ export const PlayerControls = () => {
   };
 
   const handlePlay = async () => {
-    if (!currentFile) return;
+    if (!trackInfo) return;
 
     try {
       if (isPaused) {
         await invoke("wznow");
         setIsPaused(false);
       } else {
-        await invoke("odtwarzaj", { sciezka: currentFile });
+        await invoke("odtwarzaj", { sciezka: trackInfo.path });
       }
       setIsPlaying(true);
     } catch (error) {
@@ -69,8 +78,11 @@ export const PlayerControls = () => {
   return (
     <div className="player-controls">
       <div className="file-info">
-        {currentFile ? (
-          <p>Wybrany plik: <span>{currentFile.split(/[\\/]/).pop()}</span></p>
+        {trackInfo ? (
+          <div className="track-details">
+            <p className="track-title">{trackInfo.title || trackInfo.path.split(/[\\/]/).pop()}</p>
+            <p className="track-artist">{trackInfo.artist || "Nieznany wykonawca"}</p>
+          </div>
         ) : (
           <p>Nie wybrano żadnego pliku</p>
         )}
@@ -90,7 +102,7 @@ export const PlayerControls = () => {
             <button
               className="btn-primary"
               onClick={handlePlay}
-              disabled={!currentFile}
+              disabled={!trackInfo}
             >
               {isPaused ? "Wznów" : "Graj"}
             </button>
