@@ -2,20 +2,23 @@ use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::probe::Probe;
 use lofty::tag::Accessor;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TrackMetadata {
     pub path: String,
-    pub title: Option<String>,
-    pub artist: Option<String>,
+    pub title: String,
+    pub artist: String,
     pub duration: f64,
 }
 
-pub fn extract_metadata(path: &str) -> Result<TrackMetadata, String> {
+pub fn extract_metadata(path_str: &str) -> Result<TrackMetadata, String> {
+    let path = Path::new(path_str);
+
     let tagged_file = Probe::open(path)
-        .map_err(|e| e.to_string())?
+        .map_err(|e| format!("Błąd otwierania pliku: {}", e))?
         .read()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Błąd odczytu tagów: {}", e))?;
 
     let properties = tagged_file.properties();
     let duration = properties.duration().as_secs_f64();
@@ -23,7 +26,7 @@ pub fn extract_metadata(path: &str) -> Result<TrackMetadata, String> {
     let tag = tagged_file.primary_tag()
         .or_else(|| tagged_file.first_tag());
 
-    let (title, artist) = if let Some(tag) = tag {
+    let (mut title, mut artist) = if let Some(tag) = tag {
         (
             tag.title().map(|s| s.into_owned()),
             tag.artist().map(|s| s.into_owned()),
@@ -32,10 +35,25 @@ pub fn extract_metadata(path: &str) -> Result<TrackMetadata, String> {
         (None, None)
     };
 
+    // Logika oczyszczania nazwy pliku, jeśli brakuje tagów
+    if title.is_none() {
+        let file_name = path.file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Nieznany utwór");
+
+        if file_name.contains(" - ") {
+            let parts: Vec<&str> = file_name.splitn(2, " - ").collect();
+            artist = Some(parts[0].to_string());
+            title = Some(parts[1].to_string());
+        } else {
+            title = Some(file_name.to_string());
+        }
+    }
+
     Ok(TrackMetadata {
-        path: path.to_string(),
-        title,
-        artist,
+        path: path_str.to_string(),
+        title: title.unwrap_or_else(|| "Nieznany utwór".to_string()),
+        artist: artist.unwrap_or_else(|| "Nieznany wykonawca".to_string()),
         duration,
     })
 }

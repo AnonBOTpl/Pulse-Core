@@ -5,7 +5,8 @@ Wszystkie istotne zmiany w tym projekcie będą dokumentowane w tym pliku.
 ## [0.2.0] - 2026-05-22
 
 ### Dodano
-- Inteligentne formatowanie nazw plików: automatyczne usuwanie rozszerzeń oraz parsowanie formatu "Wykonawca - Tytuł" w przypadku braku tagów ID3.
+- Zaawansowana obsługa błędów: błędy silnika BASS i bazy danych są logowane w terminalu oraz wyświetlane w interfejsie użytkownika.
+- Backendowe inteligentne formatowanie metadanych: logika czyszczenia nazw plików i parsowania formatu "Wykonawca - Tytuł" przeniesiona do Rusta.
 - Poprawka logiki: wyeliminowano opóźnienie startu odtwarzania przy wyborze pliku poprzez bezpośrednie przekazywanie ścieżki do backendu.
 - Poprawka stabilności: naprawiono błąd "unable to open database file" poprzez jawne tworzenie katalogów danych aplikacji i użycie zaawansowanej konfiguracji połączenia SQLite.
 - Integracja bazy danych SQLite przy użyciu `sqlx`.

@@ -55,7 +55,11 @@ async fn load_track_info(
     .bind(meta.duration)
     .execute(&db_state.pool)
     .await
-    .map_err(|e| format!("Błąd bazy danych: {}", e))?;
+    .map_err(|e| {
+        let msg = format!("BŁĄD BAZY DANYCH: {}", e);
+        eprintln!("{}", msg);
+        msg
+    })?;
 
     Ok(meta)
 }

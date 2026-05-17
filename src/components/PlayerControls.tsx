@@ -12,33 +12,11 @@ interface TrackMetadata {
 export const PlayerControls = () => {
   const [trackInfo, setTrackInfo] = useState<TrackMetadata | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-
-  const formatTrackDisplay = (info: TrackMetadata) => {
-    let title = info.title;
-    let artist = info.artist;
-
-    if (!title) {
-        // Czyścimy nazwę pliku z rozszerzenia i ścieżki
-        const fileName = info.path.split(/[\\/]/).pop() || "";
-        const cleanName = fileName.replace(/\.[^/.]+$/, ""); // Usuwamy rozszerzenie
-
-        if (cleanName.includes(" - ")) {
-            const parts = cleanName.split(" - ");
-            artist = parts[0];
-            title = parts[1];
-        } else {
-            title = cleanName;
-            artist = artist || "Nieznany wykonawca";
-        }
-    } else {
-        artist = artist || "Nieznany wykonawca";
-    }
-
-    return { title, artist };
-  };
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPaused, setIsPaused] = useState(false);
 
   const selectFile = async () => {
+    setErrorMessage(null);
     try {
       const selected = await open({
         multiple: false,
@@ -51,28 +29,23 @@ export const PlayerControls = () => {
       });
 
       if (selected && typeof selected === "string") {
-        // Natychmiastowe zatrzymanie obecnego utworu i start nowego przy użyciu surowej ścieżki
-        await invoke("zatrzymaj");
-        await invoke("odtwarzaj", { sciezka: selected });
+        try {
+          // Natychmiastowe zatrzymanie obecnego utworu i start nowego przy użyciu surowej ścieżki
+          await invoke("zatrzymaj");
+          await invoke("odtwarzaj", { sciezka: selected });
 
-        setIsPlaying(true);
-        setIsPaused(false);
+          setIsPlaying(true);
+          setIsPaused(false);
 
-        // Ładowanie metadanych w tle, aby nie blokować interfejsu
-        invoke<TrackMetadata>("load_track_info", { sciezka: selected })
-          .then((info) => {
-            setTrackInfo(info);
-          })
-          .catch((err) => {
-            console.error("Nie udało się załadować metadanych:", err);
-            // Ustawienie podstawowych informacji w razie błędu
-            setTrackInfo({
-              path: selected,
-              title: null,
-              artist: null,
-              duration: 0
-            });
-          });
+          // Ładowanie metadanych w tle
+          const info = await invoke<TrackMetadata>("load_track_info", { sciezka: selected });
+          setTrackInfo(info);
+        } catch (err) {
+          const msg = String(err);
+          console.error("Błąd odtwarzania:", msg);
+          setErrorMessage(`Błąd odtwarzania: ${msg}`);
+          setIsPlaying(false);
+        }
       }
     } catch (error) {
       console.error("Błąd podczas wybierania pliku:", error);
@@ -81,6 +54,7 @@ export const PlayerControls = () => {
 
   const handlePlay = async () => {
     if (!trackInfo) return;
+    setErrorMessage(null);
 
     try {
       if (isPaused) {
@@ -91,7 +65,9 @@ export const PlayerControls = () => {
       }
       setIsPlaying(true);
     } catch (error) {
-      console.error("Błąd podczas odtwarzania:", error);
+      const msg = String(error);
+      console.error("Błąd podczas odtwarzania:", msg);
+      setErrorMessage(`Błąd podczas odtwarzania: ${msg}`);
     }
   };
 
@@ -100,7 +76,9 @@ export const PlayerControls = () => {
       await invoke("pauzuj");
       setIsPaused(true);
     } catch (error) {
-      console.error("Błąd podczas pauzowania:", error);
+      const msg = String(error);
+      console.error("Błąd podczas pauzowania:", msg);
+      setErrorMessage(`Błąd podczas pauzowania: ${msg}`);
     }
   };
 
@@ -109,20 +87,21 @@ export const PlayerControls = () => {
       await invoke("zatrzymaj");
       setIsPlaying(false);
       setIsPaused(false);
+      setErrorMessage(null);
     } catch (error) {
-      console.error("Błąd podczas zatrzymywania:", error);
+      const msg = String(error);
+      console.error("Błąd podczas zatrzymywania:", msg);
+      setErrorMessage(`Błąd podczas zatrzymywania: ${msg}`);
     }
   };
-
-  const displayInfo = trackInfo ? formatTrackDisplay(trackInfo) : null;
 
   return (
     <div className="player-controls">
       <div className="file-info">
-        {displayInfo ? (
+        {trackInfo ? (
           <div className="track-details">
-            <p className="track-title">{displayInfo.title}</p>
-            <p className="track-artist">{displayInfo.artist}</p>
+            <p className="track-title">{trackInfo.title}</p>
+            <p className="track-artist">{trackInfo.artist}</p>
           </div>
         ) : (
           <p>Nie wybrano żadnego pliku</p>
@@ -158,6 +137,12 @@ export const PlayerControls = () => {
           </button>
         </div>
       </div>
+
+      {errorMessage && (
+        <div className="error-message">
+          {errorMessage}
+        </div>
+      )}
     </div>
   );
 };
