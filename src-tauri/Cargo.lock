@@ -2957,6 +2957,7 @@ name = "pulsecore"
 version = "0.1.0"
 dependencies = [
  "bass-rs",
+ "bass-sys",
  "lofty",
  "serde",
  "serde_json",

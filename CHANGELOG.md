@@ -5,6 +5,7 @@ Wszystkie istotne zmiany w tym projekcie będą dokumentowane w tym pliku.
 ## [0.2.0] - 2026-05-22
 
 ### Dodano
+- Pełna obsługa znaków UNICODE w ścieżkach plików: naprawiono błąd `FileOpen` na Windows poprzez konwersję ścieżek do formatu szerokich znaków (UTF-16) i użycie flagi `BASS_UNICODE`.
 - Zaawansowana obsługa błędów: błędy silnika BASS i bazy danych są logowane w terminalu oraz wyświetlane w interfejsie użytkownika.
 - Backendowe inteligentne formatowanie metadanych: logika czyszczenia nazw plików i parsowania formatu "Wykonawca - Tytuł" przeniesiona do Rusta.
 - Poprawka logiki: wyeliminowano opóźnienie startu odtwarzania przy wyborze pliku poprzez bezpośrednie przekazywanie ścieżki do backendu.

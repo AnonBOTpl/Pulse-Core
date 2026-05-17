@@ -27,4 +27,5 @@ bass-rs = "0.2"
 tauri-plugin-dialog = "2.7.1"
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio", "macros"] }
 lofty = "0.21"
+bass-sys = "2.3.0"
 
