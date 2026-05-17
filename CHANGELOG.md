@@ -5,6 +5,7 @@ Wszystkie istotne zmiany w tym projekcie będą dokumentowane w tym pliku.
 ## [0.2.0] - 2026-05-22
 
 ### Dodano
+- Inteligentne formatowanie nazw plików: automatyczne usuwanie rozszerzeń oraz parsowanie formatu "Wykonawca - Tytuł" w przypadku braku tagów ID3.
 - Poprawka logiki: wyeliminowano opóźnienie startu odtwarzania przy wyborze pliku poprzez bezpośrednie przekazywanie ścieżki do backendu.
 - Poprawka stabilności: naprawiono błąd "unable to open database file" poprzez jawne tworzenie katalogów danych aplikacji i użycie zaawansowanej konfiguracji połączenia SQLite.
 - Integracja bazy danych SQLite przy użyciu `sqlx`.

@@ -12,6 +12,30 @@ interface TrackMetadata {
 export const PlayerControls = () => {
   const [trackInfo, setTrackInfo] = useState<TrackMetadata | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  const formatTrackDisplay = (info: TrackMetadata) => {
+    let title = info.title;
+    let artist = info.artist;
+
+    if (!title) {
+        // Czyścimy nazwę pliku z rozszerzenia i ścieżki
+        const fileName = info.path.split(/[\\/]/).pop() || "";
+        const cleanName = fileName.replace(/\.[^/.]+$/, ""); // Usuwamy rozszerzenie
+
+        if (cleanName.includes(" - ")) {
+            const parts = cleanName.split(" - ");
+            artist = parts[0];
+            title = parts[1];
+        } else {
+            title = cleanName;
+            artist = artist || "Nieznany wykonawca";
+        }
+    } else {
+        artist = artist || "Nieznany wykonawca";
+    }
+
+    return { title, artist };
+  };
   const [isPaused, setIsPaused] = useState(false);
 
   const selectFile = async () => {
@@ -90,13 +114,15 @@ export const PlayerControls = () => {
     }
   };
 
+  const displayInfo = trackInfo ? formatTrackDisplay(trackInfo) : null;
+
   return (
     <div className="player-controls">
       <div className="file-info">
-        {trackInfo ? (
+        {displayInfo ? (
           <div className="track-details">
-            <p className="track-title">{trackInfo.title || trackInfo.path.split(/[\\/]/).pop()}</p>
-            <p className="track-artist">{trackInfo.artist || "Nieznany wykonawca"}</p>
+            <p className="track-title">{displayInfo.title}</p>
+            <p className="track-artist">{displayInfo.artist}</p>
           </div>
         ) : (
           <p>Nie wybrano żadnego pliku</p>
