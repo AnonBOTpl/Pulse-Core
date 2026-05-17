@@ -5,6 +5,7 @@ Wszystkie istotne zmiany w tym projekcie będą dokumentowane w tym pliku.
 ## [0.2.0] - 2026-05-22
 
 ### Dodano
+- Poprawka stabilności: naprawiono błąd "unable to open database file" poprzez jawne tworzenie katalogów danych aplikacji i użycie zaawansowanej konfiguracji połączenia SQLite.
 - Integracja bazy danych SQLite przy użyciu `sqlx`.
 - Implementacja wyciągania metadanych audio (Wykonawca, Tytuł, Czas trwania) za pomocą `lofty`.
 - Nowa komenda Tauri `load_track_info` do asynchronicznego pobierania i zapisywania informacji o utworach.
