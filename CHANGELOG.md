@@ -9,3 +9,6 @@ Wszystkie istotne zmiany w tym projekcie będą dokumentowane w tym pliku.
 - Konfiguracja `Cargo.toml` z bibliotekami `bass-rs` i `tokio`.
 - Podstawowa struktura komend Tauri: `odtwarzaj`, `pauzuj`, `zatrzymaj`.
 - Szkielet `audio_manager.rs` do obsługi silnika BASS.
+- Implementacja interfejsu React dla Fazy 1 (komponent `PlayerControls`).
+- Integracja pluginu dialogowego Tauri do wyboru plików audio.
+- Nowoczesne stylowanie CSS z obsługą zmiennych dla przyszłych skórek.
