@@ -157,11 +157,74 @@ body, html, #root {
 /* Playlist Module */
 .playlist-module {
   flex: 1;
+  max-height: 100%;
+}
+
+.module-header {
+  margin-bottom: 1rem;
+}
+
+.header-title-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.header-title-group h3 {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+}
+
+.btn-sync {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  opacity: 0.6;
+  transition: all 0.3s ease;
+  padding: 0.2rem;
+}
+
+.btn-sync:hover {
+  opacity: 1;
+  transform: rotate(45deg);
+}
+
+.btn-sync.syncing {
+  animation: spin 1s linear infinite;
+  opacity: 1;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .playlist-container {
+  flex: 1;
   overflow-y: auto;
-  margin-top: 1rem;
+  padding-right: 0.5rem;
+}
+
+/* Custom Scrollbar */
+.playlist-container::-webkit-scrollbar {
+  width: 4px;
+}
+
+.playlist-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.playlist-container::-webkit-scrollbar-thumb {
+  background: var(--accent-dim);
+  border-radius: 2px;
+}
+
+.playlist-container::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
 }
 
 .tracks-table {

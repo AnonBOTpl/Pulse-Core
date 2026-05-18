@@ -30,6 +30,16 @@ function App() {
 
       const info = await invoke<TrackMetadata>("load_track_info", { sciezka: path });
       setTrackInfo(info);
+
+      // Jeśli udało się odtworzyć, usuwamy ze zbioru martwych linków (jeśli tam był)
+      setDeadTracks(prev => {
+          if (prev.has(path)) {
+              const next = new Set(prev);
+              next.delete(path);
+              return next;
+          }
+          return prev;
+      });
     } catch (err) {
       if (err === "FileNotFound") {
         setDeadTracks(prev => new Set(prev).add(path));

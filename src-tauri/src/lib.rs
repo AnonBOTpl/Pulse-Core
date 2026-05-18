@@ -9,9 +9,63 @@ use std::sync::Mutex;
 use tauri::{Manager, State};
 
 #[tauri::command]
-fn odtwarzaj(sciezka: String, state: State<'_, AudioState>) -> Result<(), String> {
-    let mut manager = state.manager.lock().unwrap();
-    manager.odtwarzaj(&sciezka)
+async fn odtwarzaj(
+    sciezka: String,
+    state: State<'_, AudioState>,
+    db_state: State<'_, DbState>,
+) -> Result<(), String> {
+    let result = {
+        let mut manager = state.manager.lock().unwrap();
+        manager.odtwarzaj(&sciezka)
+    };
+
+    match result {
+        Ok(_) => {
+            // Jeśli utwór się odtworzył, upewnij się, że w bazie jest oznaczony jako dostępny
+            let _ = sqlx::query("UPDATE tracks SET available = 1 WHERE path = ?1")
+                .bind(&sciezka)
+                .execute(&db_state.pool)
+                .await;
+            Ok(())
+        },
+        Err(e) => {
+            if e == "FileNotFound" {
+                // Oznacz jako niedostępny w bazie
+                let _ = sqlx::query("UPDATE tracks SET available = 0 WHERE path = ?1")
+                    .bind(&sciezka)
+                    .execute(&db_state.pool)
+                    .await;
+            }
+            Err(e)
+        }
+    }
+}
+
+#[tauri::command]
+async fn sync_library(
+    db_state: State<'_, DbState>,
+) -> Result<(), String> {
+    let tracks = sqlx::query_as::<_, TrackMetadata>(
+        "SELECT path, title, artist, duration, available FROM tracks"
+    )
+    .fetch_all(&db_state.pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    for track in tracks {
+        let exists = std::path::Path::new(&track.path).exists();
+        let new_status = if exists { 1 } else { 0 };
+
+        if track.available != new_status {
+            let _ = sqlx::query("UPDATE tracks SET available = ?1 WHERE path = ?2")
+                .bind(new_status)
+                .bind(&track.path)
+                .execute(&db_state.pool)
+                .await;
+        }
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -147,7 +201,8 @@ pub fn run() {
             zatrzymaj,
             load_track_info,
             get_all_tracks,
-            scan_folder
+            scan_folder,
+            sync_library
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

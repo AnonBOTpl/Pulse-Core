@@ -2,6 +2,14 @@
 
 Wszystkie istotne zmiany w tym projekcie będą dokumentowane w tym pliku.
 
+## [0.5.0] - 2026-05-22
+
+### Dodano
+- System synchronizacji biblioteki (Bulk Re-check): przycisk odświeżania statusu plików w bazie danych.
+- Dynamiczny Un-ghosting: automatyczne przywracanie statusu dostępności utworu w UI i bazie danych po udanym odtworzeniu.
+- Ulepszony scrollbar i stały layout Bento: biblioteka utworów posiada teraz własne przewijanie, nie wpływając na resztę interfejsu.
+- Migracja bazy danych: dodano kolumnę `available` do tabeli `tracks`.
+
 ## [0.4.0] - 2026-05-22
 
 ### Dodano

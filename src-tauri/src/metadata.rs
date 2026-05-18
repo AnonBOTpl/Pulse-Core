@@ -10,6 +10,7 @@ pub struct TrackMetadata {
     pub title: String,
     pub artist: String,
     pub duration: f64,
+    pub available: i32,
 }
 
 pub fn extract_metadata(path_str: &str) -> Result<TrackMetadata, String> {
@@ -55,5 +56,6 @@ pub fn extract_metadata(path_str: &str) -> Result<TrackMetadata, String> {
         title: title.unwrap_or_else(|| "Nieznany utwór".to_string()),
         artist: artist.unwrap_or_else(|| "Nieznany wykonawca".to_string()),
         duration,
+        available: 1,
     })
 }

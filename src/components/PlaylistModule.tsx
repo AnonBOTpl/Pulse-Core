@@ -6,6 +6,7 @@ interface Track {
   title: string;
   artist: string;
   duration: number;
+  available: number;
 }
 
 interface PlaylistModuleProps {
@@ -17,6 +18,7 @@ interface PlaylistModuleProps {
 
 export const PlaylistModule = ({ onSelectTrack, currentPath, deadTracks, onTracksLoaded }: PlaylistModuleProps) => {
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const loadTracks = async () => {
     try {
@@ -43,10 +45,32 @@ export const PlaylistModule = ({ onSelectTrack, currentPath, deadTracks, onTrack
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const syncLibrary = async () => {
+    setIsSyncing(true);
+    try {
+      await invoke("sync_library");
+      await loadTracks();
+    } catch (error) {
+      console.error("Błąd synchronizacji:", error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="bento-module playlist-module">
       <div className="module-header">
-        <h3>BIBLIOTEKA UTWORÓW</h3>
+        <div className="header-title-group">
+          <h3>BIBLIOTEKA UTWORÓW</h3>
+          <button
+            className={`btn-sync ${isSyncing ? 'syncing' : ''}`}
+            onClick={syncLibrary}
+            disabled={isSyncing}
+            title="Synchronizuj status plików"
+          >
+            🔄
+          </button>
+        </div>
       </div>
       <div className="playlist-container">
         {tracks.length === 0 ? (
@@ -66,7 +90,7 @@ export const PlaylistModule = ({ onSelectTrack, currentPath, deadTracks, onTrack
                   key={idx}
                   className={`
                     ${currentPath === track.path ? "active" : ""}
-                    ${deadTracks.has(track.path) ? "dead-link" : ""}
+                    ${deadTracks.has(track.path) || track.available === 0 ? "dead-link" : ""}
                   `}
                   onClick={() => onSelectTrack(track.path)}
                 >
