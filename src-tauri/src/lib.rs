@@ -78,6 +78,52 @@ async fn get_all_tracks(
     Ok(tracks)
 }
 
+#[tauri::command]
+async fn scan_folder(
+    sciezka: String,
+    db_state: State<'_, DbState>,
+) -> Result<(), String> {
+    use walkdir::WalkDir;
+
+    let pool = db_state.pool.clone();
+    let root = sciezka.clone();
+
+    tokio::spawn(async move {
+        for entry in WalkDir::new(root).into_iter().filter_map(|e| e.ok()) {
+            if entry.file_type().is_file() {
+                let path = entry.path();
+                let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+
+                if ["mp3", "flac", "wav", "ogg", "m4a"].contains(&ext.as_str()) {
+                    let path_str = path.to_string_lossy().to_string();
+
+                    // Wyciągamy metadane
+                    if let Ok(meta) = extract_metadata(&path_str) {
+                        // Zapisujemy do bazy
+                        let _ = sqlx::query(
+                            "INSERT INTO tracks (path, title, artist, duration)
+                             VALUES (?1, ?2, ?3, ?4)
+                             ON CONFLICT(path) DO UPDATE SET
+                                title=excluded.title,
+                                artist=excluded.artist,
+                                duration=excluded.duration"
+                        )
+                        .bind(&meta.path)
+                        .bind(&meta.title)
+                        .bind(&meta.artist)
+                        .bind(meta.duration)
+                        .execute(&pool)
+                        .await;
+                    }
+                }
+            }
+        }
+        println!("Skanowanie folderu zakończone: {}", sciezka);
+    });
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -100,7 +146,8 @@ pub fn run() {
             wznow,
             zatrzymaj,
             load_track_info,
-            get_all_tracks
+            get_all_tracks,
+            scan_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -2,6 +2,15 @@
 
 Wszystkie istotne zmiany w tym projekcie będą dokumentowane w tym pliku.
 
+## [0.4.0] - 2026-05-22
+
+### Dodano
+- Asynchroniczne, rekurencyjne skanowanie folderów: nowa komenda `scan_folder` w Rust z wykorzystaniem `walkdir`.
+- System obsługi martwych linków: automatyczne sprawdzanie istnienia pliku przed odtwarzaniem.
+- Mechanizm Auto-Skip: automatyczne przeskakiwanie do następnego sprawnego utworu w przypadku braku pliku na dysku.
+- Efekt ghostingu w UI: wizualne oznaczanie niedostępnych utworów na liście (zmniejszona przezroczystość).
+- Przycisk "Dodaj folder" w panelu sterowania.
+
 ## [0.3.0] - 2026-05-22
 
 ### Dodano

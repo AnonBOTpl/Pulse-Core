@@ -26,6 +26,12 @@ impl AudioManager {
     }
 
     pub fn odtwarzaj(&mut self, sciezka: &str) -> Result<(), String> {
+        if !std::path::Path::new(sciezka).exists() {
+            let msg = "FileNotFound".to_string();
+            eprintln!("BŁĄD: Plik nie istnieje: {}", sciezka);
+            return Err(msg);
+        }
+
         let file = File::open(sciezka).map_err(|e| {
             let msg = format!("BŁĄD RODIO przy próbie otwarcia pliku: {}", e);
             eprintln!("{}", msg);

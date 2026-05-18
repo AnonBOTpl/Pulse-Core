@@ -11,15 +11,20 @@ interface Track {
 interface PlaylistModuleProps {
   onSelectTrack: (path: string) => void;
   currentPath?: string;
+  deadTracks: Set<string>;
+  onTracksLoaded?: (tracks: Track[]) => void;
 }
 
-export const PlaylistModule = ({ onSelectTrack, currentPath }: PlaylistModuleProps) => {
+export const PlaylistModule = ({ onSelectTrack, currentPath, deadTracks, onTracksLoaded }: PlaylistModuleProps) => {
   const [tracks, setTracks] = useState<Track[]>([]);
 
   const loadTracks = async () => {
     try {
       const result = await invoke<Track[]>("get_all_tracks");
       setTracks(result);
+      if (onTracksLoaded) {
+          onTracksLoaded(result);
+      }
     } catch (error) {
       console.error("Nie udało się załadować playlisty:", error);
     }
@@ -59,7 +64,10 @@ export const PlaylistModule = ({ onSelectTrack, currentPath }: PlaylistModulePro
               {tracks.map((track, idx) => (
                 <tr
                   key={idx}
-                  className={currentPath === track.path ? "active" : ""}
+                  className={`
+                    ${currentPath === track.path ? "active" : ""}
+                    ${deadTracks.has(track.path) ? "dead-link" : ""}
+                  `}
                   onClick={() => onSelectTrack(track.path)}
                 >
                   <td className="track-title-cell">{track.title}</td>

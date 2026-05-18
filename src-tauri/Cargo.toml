@@ -28,4 +28,5 @@ sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio", "macros"] }
 lofty = "0.21"
 rodio = { version = "0.22.2", default-features = false, features = ["playback", "symphonia-all"] }
 rustfft = "6.4.1"
+walkdir = "2.5.0"
 

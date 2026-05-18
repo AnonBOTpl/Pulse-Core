@@ -17,6 +17,8 @@ function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deadTracks, setDeadTracks] = useState<Set<string>>(new Set());
+  const [allTracks, setAllTracks] = useState<TrackMetadata[]>([]);
 
   const handleTrackSelect = async (path: string) => {
     setError(null);
@@ -29,8 +31,30 @@ function App() {
       const info = await invoke<TrackMetadata>("load_track_info", { sciezka: path });
       setTrackInfo(info);
     } catch (err) {
-      setError(String(err));
-      setIsPlaying(false);
+      if (err === "FileNotFound") {
+        setDeadTracks(prev => new Set(prev).add(path));
+        setError("Plik nie został znaleziony na dysku. Przeskakuję...");
+        // Auto-skip logic
+        skipToNext(path);
+      } else {
+        setError(String(err));
+        setIsPlaying(false);
+      }
+    }
+  };
+
+  const skipToNext = (currentPath: string) => {
+    if (allTracks.length === 0) return;
+
+    const currentIndex = allTracks.findIndex(t => t.path === currentPath);
+    // Szukaj następnego sprawnego utworu (maksymalnie przez całą listę)
+    for (let i = 1; i <= allTracks.length; i++) {
+        const nextIndex = (currentIndex + i) % allTracks.length;
+        const nextTrack = allTracks[nextIndex];
+        if (!deadTracks.has(nextTrack.path)) {
+            handleTrackSelect(nextTrack.path);
+            break;
+        }
     }
   };
 
@@ -74,7 +98,6 @@ function App() {
             onPlay={handlePlayDirect}
             onPause={handlePause}
             onStop={handleStop}
-            onTrackLoaded={setTrackInfo}
           />
         </div>
 
@@ -86,6 +109,8 @@ function App() {
           <PlaylistModule
             onSelectTrack={handleTrackSelect}
             currentPath={trackInfo?.path}
+            deadTracks={deadTracks}
+            onTracksLoaded={setAllTracks}
           />
         </div>
       </div>

@@ -15,7 +15,6 @@ interface PlayerModuleProps {
   onPlay: (path: string) => void;
   onPause: () => void;
   onStop: () => void;
-  onTrackLoaded: (info: TrackMetadata) => void;
 }
 
 export const PlayerModule = ({
@@ -25,7 +24,6 @@ export const PlayerModule = ({
   onPlay,
   onPause,
   onStop,
-  onTrackLoaded
 }: PlayerModuleProps) => {
 
   const selectFile = async () => {
@@ -36,16 +34,25 @@ export const PlayerModule = ({
       });
 
       if (selected && typeof selected === "string") {
-        await invoke("zatrzymaj");
-        await invoke("odtwarzaj", { sciezka: selected });
-
         onPlay(selected);
-
-        const info = await invoke<TrackMetadata>("load_track_info", { sciezka: selected });
-        onTrackLoaded(info);
       }
     } catch (error) {
       console.error("Błąd podczas wybierania pliku:", error);
+    }
+  };
+
+  const selectFolder = async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+      });
+
+      if (selected && typeof selected === "string") {
+        await invoke("scan_folder", { sciezka: selected });
+      }
+    } catch (error) {
+      console.error("Błąd podczas wybierania folderu:", error);
     }
   };
 
@@ -76,9 +83,14 @@ export const PlayerModule = ({
       </div>
 
       <div className="player-controls-row">
-        <button className="btn-icon btn-secondary" onClick={selectFile}>
-          📂
-        </button>
+        <div className="import-controls">
+          <button className="btn-icon btn-secondary" onClick={selectFile} title="Dodaj plik">
+            📂
+          </button>
+          <button className="btn-icon btn-secondary" onClick={selectFolder} title="Dodaj folder">
+            📁
+          </button>
+        </div>
 
         <div className="main-btns">
             {isPlaying && !isPaused ? (

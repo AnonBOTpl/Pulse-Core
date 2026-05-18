@@ -192,6 +192,13 @@ body, html, #root {
   color: var(--accent);
 }
 
+.tracks-table tr.dead-link {
+  opacity: 0.35;
+  cursor: not-allowed;
+  text-decoration: line-through;
+  filter: grayscale(1);
+}
+
 .text-right { text-align: right; }
 
 /* Visualizer Module */
