@@ -35,16 +35,20 @@ pub async fn init_db(app_handle: &AppHandle) -> Result<Pool<Sqlite>, sqlx::Error
             title TEXT,
             artist TEXT,
             duration REAL,
-            available INTEGER DEFAULT 1
+            available INTEGER DEFAULT 1,
+            format TEXT,
+            sample_rate INTEGER,
+            bitrate INTEGER
         )"
     )
     .execute(&pool)
     .await?;
 
-    // Migracja: Dodaj kolumnę available jeśli nie istnieje
-    let _ = sqlx::query("ALTER TABLE tracks ADD COLUMN available INTEGER DEFAULT 1")
-        .execute(&pool)
-        .await;
+    // Migracja: Dodaj kolumny jeśli nie istnieją
+    let _ = sqlx::query("ALTER TABLE tracks ADD COLUMN available INTEGER DEFAULT 1").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE tracks ADD COLUMN format TEXT").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE tracks ADD COLUMN sample_rate INTEGER").execute(&pool).await;
+    let _ = sqlx::query("ALTER TABLE tracks ADD COLUMN bitrate INTEGER").execute(&pool).await;
 
     Ok(pool)
 }

@@ -2,6 +2,14 @@
 
 Wszystkie istotne zmiany w tym projekcie będą dokumentowane w tym pliku.
 
+## [0.6.0] - 2026-05-22
+
+### Dodano
+- Realna kontrola odtwarzania: wdrożono funkcjonalny Timeline z obsługą przewijania (seeking) oraz regulację głośności (Volume Control).
+- Panel Audiofila: wyświetlanie technicznych parametrów utworu (Format, Sample Rate, Bitrate) pobieranych bezpośrednio z silnika audio.
+- Komendy Tauri `seek`, `set_volume` oraz `get_playback_position` do komunikacji z silnikiem `rodio`.
+- Precyzyjne odmierzanie czasu: wyświetlanie czasu minionego oraz czasu pozostałego do końca utworu w formacie MM:SS.
+
 ## [0.5.0] - 2026-05-22
 
 ### Dodano

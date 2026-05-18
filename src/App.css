@@ -87,26 +87,49 @@ body, html, #root {
 .display-artist {
   margin: 0.2rem 0 0 0;
   color: var(--text-dim);
-  font-size: 1rem;
+  font-size: 0.9rem;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
-.timeline-bar {
-  width: 100%;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 3px;
-  position: relative;
-  margin-bottom: 0.5rem;
+.player-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
 }
 
-.timeline-progress {
-  height: 100%;
-  background: var(--accent);
-  border-radius: 3px;
-  box-shadow: 0 0 10px var(--accent-dim);
-  transition: width 0.1s linear;
+.audiophile-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+  font-family: monospace;
+}
+
+.badge-format {
+  background: var(--accent-dim);
+  color: var(--accent);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.tech-info {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.timeline-module {
+  width: 100%;
+}
+
+.timeline-slider {
+  width: 100%;
+  accent-color: var(--accent);
+  height: 4px;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
 }
 
 .time-stamps {

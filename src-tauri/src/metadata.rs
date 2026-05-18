@@ -11,6 +11,9 @@ pub struct TrackMetadata {
     pub artist: String,
     pub duration: f64,
     pub available: i32,
+    pub format: String,
+    pub sample_rate: u32,
+    pub bitrate: u32,
 }
 
 pub fn extract_metadata(path_str: &str) -> Result<TrackMetadata, String> {
@@ -23,6 +26,12 @@ pub fn extract_metadata(path_str: &str) -> Result<TrackMetadata, String> {
 
     let properties = tagged_file.properties();
     let duration = properties.duration().as_secs_f64();
+    let sample_rate = properties.sample_rate().unwrap_or(0);
+    let bitrate = properties.audio_bitrate().unwrap_or(0);
+    let format = path.extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("Unknown")
+        .to_uppercase();
 
     let tag = tagged_file.primary_tag()
         .or_else(|| tagged_file.first_tag());
@@ -57,5 +66,8 @@ pub fn extract_metadata(path_str: &str) -> Result<TrackMetadata, String> {
         artist: artist.unwrap_or_else(|| "Nieznany wykonawca".to_string()),
         duration,
         available: 1,
+        format,
+        sample_rate,
+        bitrate,
     })
 }

@@ -46,7 +46,7 @@ async fn sync_library(
     db_state: State<'_, DbState>,
 ) -> Result<(), String> {
     let tracks = sqlx::query_as::<_, TrackMetadata>(
-        "SELECT path, title, artist, duration, available FROM tracks"
+        "SELECT path, title, artist, duration, available, format, sample_rate, bitrate FROM tracks"
     )
     .fetch_all(&db_state.pool)
     .await
@@ -87,6 +87,24 @@ fn zatrzymaj(state: State<'_, AudioState>) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn seek(seconds: f64, state: State<'_, AudioState>) -> Result<(), String> {
+    let manager = state.manager.lock().unwrap();
+    manager.seek(seconds)
+}
+
+#[tauri::command]
+fn set_volume(volume: f32, state: State<'_, AudioState>) -> Result<(), String> {
+    let manager = state.manager.lock().unwrap();
+    manager.set_volume(volume)
+}
+
+#[tauri::command]
+fn get_playback_position(state: State<'_, AudioState>) -> f64 {
+    let manager = state.manager.lock().unwrap();
+    manager.get_position()
+}
+
+#[tauri::command]
 async fn load_track_info(
     sciezka: String,
     db_state: State<'_, DbState>,
@@ -96,17 +114,23 @@ async fn load_track_info(
 
     // 2. Zapisz/Aktualizuj w bazie danych
     sqlx::query(
-        "INSERT INTO tracks (path, title, artist, duration)
-         VALUES (?1, ?2, ?3, ?4)
+        "INSERT INTO tracks (path, title, artist, duration, format, sample_rate, bitrate)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
          ON CONFLICT(path) DO UPDATE SET
             title=excluded.title,
             artist=excluded.artist,
-            duration=excluded.duration"
+            duration=excluded.duration,
+            format=excluded.format,
+            sample_rate=excluded.sample_rate,
+            bitrate=excluded.bitrate"
     )
     .bind(&meta.path)
     .bind(&meta.title)
     .bind(&meta.artist)
     .bind(meta.duration)
+    .bind(&meta.format)
+    .bind(meta.sample_rate)
+    .bind(meta.bitrate)
     .execute(&db_state.pool)
     .await
     .map_err(|e| {
@@ -123,7 +147,7 @@ async fn get_all_tracks(
     db_state: State<'_, DbState>,
 ) -> Result<Vec<TrackMetadata>, String> {
     let tracks = sqlx::query_as::<_, TrackMetadata>(
-        "SELECT path, title, artist, duration, available FROM tracks ORDER BY id DESC"
+        "SELECT path, title, artist, duration, available, format, sample_rate, bitrate FROM tracks ORDER BY id DESC"
     )
     .fetch_all(&db_state.pool)
     .await
@@ -159,17 +183,23 @@ async fn scan_folder(
                     if let Ok(meta) = extract_metadata(&path_str) {
                         // Zapisujemy do bazy
                         let _ = sqlx::query(
-                            "INSERT INTO tracks (path, title, artist, duration)
-                             VALUES (?1, ?2, ?3, ?4)
+                            "INSERT INTO tracks (path, title, artist, duration, format, sample_rate, bitrate)
+                             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
                              ON CONFLICT(path) DO UPDATE SET
                                 title=excluded.title,
                                 artist=excluded.artist,
-                                duration=excluded.duration"
+                                duration=excluded.duration,
+                                format=excluded.format,
+                                sample_rate=excluded.sample_rate,
+                                bitrate=excluded.bitrate"
                         )
                         .bind(&meta.path)
                         .bind(&meta.title)
                         .bind(&meta.artist)
                         .bind(meta.duration)
+                        .bind(&meta.format)
+                        .bind(meta.sample_rate)
+                        .bind(meta.bitrate)
                         .execute(&pool)
                         .await;
                     }
@@ -206,7 +236,10 @@ pub fn run() {
             load_track_info,
             get_all_tracks,
             scan_folder,
-            sync_library
+            sync_library,
+            seek,
+            set_volume,
+            get_playback_position
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

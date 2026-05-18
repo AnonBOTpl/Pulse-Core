@@ -2,6 +2,7 @@ use rodio::{Decoder, Player, DeviceSinkBuilder, MixerDeviceSink};
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 pub struct AudioState {
     pub manager: Mutex<AudioManager>,
@@ -69,5 +70,22 @@ impl AudioManager {
         let player = self.player.lock().unwrap();
         player.stop();
         Ok(())
+    }
+
+    pub fn seek(&self, seconds: f64) -> Result<(), String> {
+        let player = self.player.lock().unwrap();
+        player.try_seek(Duration::from_secs_f64(seconds))
+            .map_err(|e| format!("Błąd przewijania: {:?}", e))
+    }
+
+    pub fn set_volume(&self, volume: f32) -> Result<(), String> {
+        let player = self.player.lock().unwrap();
+        player.set_volume(volume);
+        Ok(())
+    }
+
+    pub fn get_position(&self) -> f64 {
+        let player = self.player.lock().unwrap();
+        player.get_pos().as_secs_f64()
     }
 }

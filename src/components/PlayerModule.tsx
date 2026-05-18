@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
@@ -6,6 +7,9 @@ interface TrackMetadata {
   title: string;
   artist: string;
   duration: number;
+  format?: string;
+  sample_rate?: number;
+  bitrate?: number;
 }
 
 interface PlayerModuleProps {
@@ -25,6 +29,65 @@ export const PlayerModule = ({
   onPause,
   onStop,
 }: PlayerModuleProps) => {
+  const [currentTime, setCurrentTime] = useState(0);
+  const [volume, setVolume] = useState(80);
+  const isDraggingTimeline = useRef(false);
+
+  // Pobieranie pozycji odtwarzania
+  useEffect(() => {
+    let interval: number;
+    if (isPlaying && !isPaused && !isDraggingTimeline.current) {
+        interval = window.setInterval(async () => {
+            try {
+                const pos = await invoke<number>("get_playback_position");
+                setCurrentTime(pos);
+            } catch (e) {
+                console.error("Błąd pobierania pozycji:", e);
+            }
+        }, 500);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, isPaused]);
+
+  // Reset czasu przy nowym utworze
+  useEffect(() => {
+    if (trackInfo) {
+        setCurrentTime(0);
+    }
+  }, [trackInfo?.path]);
+
+  const handleSeek = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value);
+    setCurrentTime(val);
+    try {
+        await invoke("seek", { seconds: val });
+    } catch (e) {
+        console.error("Seek error:", e);
+    }
+  };
+
+  const handleVolumeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value);
+    setVolume(val);
+    try {
+        await invoke("set_volume", { volume: val / 100 });
+    } catch (e) {
+        console.error("Volume error:", e);
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatRemaining = (seconds: number, duration: number) => {
+    const remaining = duration - seconds;
+    const mins = Math.floor(remaining / 60);
+    const secs = Math.floor(remaining % 60);
+    return `-${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const selectFile = async () => {
     try {
@@ -58,27 +121,44 @@ export const PlayerModule = ({
 
   return (
     <div className="bento-module player-module">
-      <div className="track-info-display">
-        {trackInfo ? (
-          <>
-            <h2 className="display-title">{trackInfo.title}</h2>
-            <p className="display-artist">{trackInfo.artist}</p>
-          </>
-        ) : (
-          <>
-            <h2 className="display-title">PulseCore Player</h2>
-            <p className="display-artist">Wybierz utwór, aby rozpocząć</p>
-          </>
+      <div className="player-top-row">
+        <div className="track-info-display">
+            {trackInfo ? (
+            <>
+                <h2 className="display-title">{trackInfo.title}</h2>
+                <p className="display-artist">{trackInfo.artist}</p>
+            </>
+            ) : (
+            <>
+                <h2 className="display-title">PulseCore Player</h2>
+                <p className="display-artist">Wybierz utwór, aby rozpocząć</p>
+            </>
+            )}
+        </div>
+
+        {trackInfo && (
+            <div className="audiophile-panel">
+                <span className="badge-format">{trackInfo.format}</span>
+                <span className="tech-info">{trackInfo.sample_rate ? (trackInfo.sample_rate / 1000).toFixed(1) : "0"} kHz</span>
+                <span className="tech-info">{trackInfo.bitrate ? Math.round(trackInfo.bitrate / 1000) : "0"} kbps</span>
+            </div>
         )}
       </div>
 
-      <div className="timeline-placeholder">
-        <div className="timeline-bar">
-          <div className="timeline-progress" style={{ width: isPlaying ? '35%' : '0%' }}></div>
-        </div>
+      <div className="timeline-module">
+        <input
+            type="range"
+            className="timeline-slider"
+            min="0"
+            max={trackInfo?.duration || 0}
+            value={currentTime}
+            onChange={handleSeek}
+            onMouseDown={() => isDraggingTimeline.current = true}
+            onMouseUp={() => isDraggingTimeline.current = false}
+        />
         <div className="time-stamps">
-            <span>0:00</span>
-            <span>{trackInfo ? `${Math.floor(trackInfo.duration / 60)}:${Math.floor(trackInfo.duration % 60).toString().padStart(2, '0')}` : "0:00"}</span>
+            <span>{formatTime(currentTime)}</span>
+            <span>{trackInfo ? formatRemaining(currentTime, trackInfo.duration) : "0:00"}</span>
         </div>
       </div>
 
@@ -114,8 +194,15 @@ export const PlayerModule = ({
         </div>
 
         <div className="volume-control">
-            <span className="vol-icon">🔊</span>
-            <input type="range" className="vol-slider" min="0" max="100" defaultValue="80" />
+            <span className="vol-icon">{volume === 0 ? "🔇" : "🔊"}</span>
+            <input
+                type="range"
+                className="vol-slider"
+                min="0"
+                max="100"
+                value={volume}
+                onChange={handleVolumeChange}
+            />
         </div>
       </div>
     </div>
