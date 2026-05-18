@@ -10,6 +10,7 @@ export const VisualizerModule = () => {
   const requestRef = useRef<number>(0);
   const peaksRef = useRef<number[]>(new Array(256).fill(0));
   const isComponentMounted = useRef(true);
+  const idleAnimRef = useRef(0);
 
   const drawBars = (ctx: CanvasRenderingContext2D, data: number[], width: number, height: number) => {
     const barsCount = 64;
@@ -27,7 +28,7 @@ export const VisualizerModule = () => {
 
     for (let i = 0; i < barsCount; i++) {
         const value = data[i] || 0;
-        const barHeight = value * height * 1.5; // Zwiększone wzmocnienie dla lepszego efektu
+        const barHeight = value * height * 1.5;
 
         if (barHeight > peaksRef.current[i]) {
             peaksRef.current[i] = barHeight;
@@ -84,6 +85,34 @@ export const VisualizerModule = () => {
     ctx.stroke();
   };
 
+  const drawIdle = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    idleAnimRef.current += 0.05;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const pulse = Math.sin(idleAnimRef.current) * 10;
+
+    ctx.strokeStyle = "rgba(0, 242, 255, 0.3)";
+    ctx.lineWidth = 1;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = "rgba(0, 242, 255, 0.2)";
+
+    // Rysujemy delikatną linię bazową (neonowy horyzont)
+    ctx.beginPath();
+    ctx.moveTo(width * 0.1, centerY);
+    for (let x = width * 0.1; x < width * 0.9; x += 10) {
+        const y = centerY + Math.sin(x * 0.05 + idleAnimRef.current) * (2 + pulse * 0.2);
+        ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Delikatny zarys pierścienia w trybie ring
+    if (mode === "ring") {
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, (Math.min(width, height) * 0.25) + pulse * 0.1, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+  };
+
   useEffect(() => {
     isComponentMounted.current = true;
 
@@ -108,7 +137,6 @@ export const VisualizerModule = () => {
 
         try {
             const fftData = await invoke<number[]>("get_fft_data");
-            // Sprawdź czy dane nie są same zera (cisza)
             const hasData = fftData.some(v => v > 0);
 
             if (hasData) {
@@ -118,10 +146,10 @@ export const VisualizerModule = () => {
                     drawRing(ctx, fftData, rect.width, rect.height);
                 }
             } else {
-                // Jeśli cisza, możemy narysować coś statycznego lub zostawić czyste
+                drawIdle(ctx, rect.width, rect.height);
             }
         } catch (e) {
-            // Ciche logowanie błędów FFT, aby nie zaśmiecać konsoli przy zmianach utworów
+            drawIdle(ctx, rect.width, rect.height);
         }
 
         ctx.restore();
