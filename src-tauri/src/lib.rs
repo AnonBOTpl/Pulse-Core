@@ -123,7 +123,7 @@ async fn get_all_tracks(
     db_state: State<'_, DbState>,
 ) -> Result<Vec<TrackMetadata>, String> {
     let tracks = sqlx::query_as::<_, TrackMetadata>(
-        "SELECT path, title, artist, duration FROM tracks ORDER BY id DESC"
+        "SELECT path, title, artist, duration, available FROM tracks ORDER BY id DESC"
     )
     .fetch_all(&db_state.pool)
     .await

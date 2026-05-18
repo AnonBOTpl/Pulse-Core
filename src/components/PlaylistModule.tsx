@@ -14,9 +14,10 @@ interface PlaylistModuleProps {
   currentPath?: string;
   deadTracks: Set<string>;
   onTracksLoaded?: (tracks: Track[]) => void;
+  refreshTrigger?: number;
 }
 
-export const PlaylistModule = ({ onSelectTrack, currentPath, deadTracks, onTracksLoaded }: PlaylistModuleProps) => {
+export const PlaylistModule = ({ onSelectTrack, currentPath, deadTracks, onTracksLoaded, refreshTrigger }: PlaylistModuleProps) => {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -37,7 +38,7 @@ export const PlaylistModule = ({ onSelectTrack, currentPath, deadTracks, onTrack
     // Odświeżaj co jakiś czas lub po akcji (uproszczenie)
     const interval = setInterval(loadTracks, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshTrigger]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

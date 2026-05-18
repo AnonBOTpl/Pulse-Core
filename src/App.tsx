@@ -19,6 +19,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [deadTracks, setDeadTracks] = useState<Set<string>>(new Set());
   const [allTracks, setAllTracks] = useState<TrackMetadata[]>([]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const handleTrackSelect = async (path: string) => {
     setError(null);
@@ -40,6 +41,9 @@ function App() {
           }
           return prev;
       });
+
+      // Wymuszamy odświeżenie listy z bazy danych
+      setRefreshTrigger(prev => prev + 1);
     } catch (err) {
       if (err === "FileNotFound") {
         setDeadTracks(prev => new Set(prev).add(path));
@@ -121,6 +125,7 @@ function App() {
             currentPath={trackInfo?.path}
             deadTracks={deadTracks}
             onTracksLoaded={setAllTracks}
+            refreshTrigger={refreshTrigger}
           />
         </div>
       </div>
