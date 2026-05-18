@@ -31,9 +31,11 @@ impl AudioManager {
             return Err("FileNotFound".to_string());
         }
 
-        // Zatrzymaj poprzedni kanał (zostanie zwolniony przy Drop)
-        if let Some(channel) = &self.current_channel {
+        // Kluczowe: Jawne zwolnienie poprzedniego strumienia przed otwarciem nowego.
+        // Ustawienie na None powoduje wywołanie Drop dla StreamChannel, co wykonuje BASS_StreamFree.
+        if let Some(channel) = self.current_channel.take() {
             let _ = channel.stop();
+            // Drop następuje tutaj
         }
 
         // Utwórz nowy kanał strumieniowy z pliku (offset 0)
@@ -113,8 +115,17 @@ impl AudioManager {
 
     pub fn get_fft_data(&self) -> Vec<f32> {
         if let Some(channel) = &self.current_channel {
-            // FFT512 zwraca 256 pasm
-            channel.get_data(DataType::FFT512, 256).unwrap_or_else(|_| vec![0.0; 256])
+            // Sprawdź czy kanał jest wciąż aktywny
+            match channel.get_playback_state() {
+                Ok(PlaybackState::Playing) | Ok(PlaybackState::Paused) | Ok(PlaybackState::Stalled) => {
+                    // FFT512 zwraca 256 pasm jako float
+                    channel.get_data(DataType::FFT512, 256).unwrap_or_else(|e| {
+                        eprintln!("BŁĄD FFT BASS: {:?}", e);
+                        vec![0.0; 256]
+                    })
+                },
+                _ => vec![0.0; 256],
+            }
         } else {
             vec![0.0; 256]
         }
