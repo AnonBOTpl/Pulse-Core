@@ -38,6 +38,10 @@ impl AudioManager {
             return Err("FileNotFound".to_string());
         }
 
+        // Dajemy systemowi Windows 50ms na fizyczne zwolnienie uchwytu pliku
+        // po tym jak poprzedni kanał został zwolniony (droped).
+        std::thread::sleep(std::time::Duration::from_millis(50));
+
         // Spróbuj utworzyć kanał
         let channel = StreamChannel::load_from_path(sciezka, 0)
             .map_err(|e| format!("{:?}", e))?;

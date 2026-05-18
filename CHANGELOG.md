@@ -17,6 +17,8 @@ Wszystkie istotne zmiany w tym projekcie będą dokumentowane w tym pliku.
 ### Naprawiono
 - **Bitrate Display:** Poprawiono błąd wyświetlania bitrate (usunięto zbędne dzielenie przez 1000).
 - **ID Reset:** Funkcja czyszczenia biblioteki teraz poprawnie resetuje licznik ID w bazie danych (`sqlite_sequence`).
+- **Optymalizacja Mutexu:** Zastosowano `try_lock()` w komendzie FFT, co eliminuje zawieszanie się interfejsu i "głodzenie" wątków przy wysokim odświeżaniu (60 FPS).
+- **Stabilizacja I/O:** Dodano 50ms opóźnienie przed otwarciem strumienia, eliminując błąd blokowania pliku (`FileOpen`) pod systemem Windows.
 
 ## [0.6.0] - 2026-05-22
 

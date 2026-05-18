@@ -64,8 +64,13 @@ async fn odtwarzaj(
 
 #[tauri::command]
 fn get_fft_data(state: State<'_, AudioState>) -> Vec<f32> {
-    let manager = state.manager.lock().unwrap();
-    manager.get_fft_data()
+    // Używamy try_lock, aby uniknąć blokowania wątku głównego 60 razy na sekundę.
+    // Jeśli Mutex jest zajęty (np. przez komendę odtwarzaj), zwracamy pustą tablicę.
+    if let Ok(manager) = state.manager.try_lock() {
+        manager.get_fft_data()
+    } else {
+        vec![0.0; 256]
+    }
 }
 
 #[tauri::command]
