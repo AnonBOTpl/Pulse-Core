@@ -5,6 +5,8 @@ Wszystkie istotne zmiany w tym projekcie będą dokumentowane w tym pliku.
 ## [0.5.0] - 2026-05-22
 
 ### Dodano
+- Stabilizacja layoutu Bento: Naprawiono błąd rozciągania się modułu playlisty poza okno programu poprzez zastosowanie `min-height: 0` oraz obliczeń wysokości `100vh`.
+- Nowoczesny szlif wizualny: dodano stylowy, dyskretny pasek przewijania dla biblioteki utworów, spójny z motywem dark mode.
 - Fix krytyczny: Naprawiono błąd mapowania SQL w `get_all_tracks`, przywracając widoczność biblioteki utworów.
 - Naprawa UI: Wymuszono przewijanie (scrollbar) listy utworów wewnątrz Bento Grid, naprawiając uciekanie interfejsu poza okno.
 - Synchronizacja "martwych linków": przycisk odświeżania teraz poprawnie usuwa wyszarzenie utworów, które wróciły na dysk.

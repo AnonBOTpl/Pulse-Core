@@ -42,15 +42,15 @@ body, html, #root {
   gap: 1rem;
   width: 100%;
   max-width: 1100px;
-  height: 90vh;
+  height: calc(100vh - 3rem);
   grid-template-areas:
     "player player"
     "playlist visualizer";
 }
 
-.grid-area-player { grid-area: player; }
-.grid-area-playlist { grid-area: playlist; }
-.grid-area-visualizer { grid-area: visualizer; }
+.grid-area-player { grid-area: player; min-height: 0; }
+.grid-area-playlist { grid-area: playlist; min-height: 0; }
+.grid-area-visualizer { grid-area: visualizer; min-height: 0; }
 
 /* Bento Module Base */
 .bento-module {
@@ -215,20 +215,24 @@ body, html, #root {
 
 /* Custom Scrollbar */
 .playlist-container::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
 }
 
 .playlist-container::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.02);
+  border-radius: 3px;
 }
 
 .playlist-container::-webkit-scrollbar-thumb {
-  background: var(--accent-dim);
-  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background-clip: content-box;
 }
 
 .playlist-container::-webkit-scrollbar-thumb:hover {
   background: var(--accent);
+  background-clip: padding-box;
 }
 
 .tracks-table {
