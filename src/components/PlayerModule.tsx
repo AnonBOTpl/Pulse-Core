@@ -19,6 +19,8 @@ interface PlayerModuleProps {
   onPlay: (path: string) => void;
   onPause: () => void;
   onStop: () => void;
+  onNext: () => void;
+  onPrevious: () => void;
 }
 
 export const PlayerModule = ({
@@ -28,9 +30,12 @@ export const PlayerModule = ({
   onPlay,
   onPause,
   onStop,
+  onNext,
+  onPrevious,
 }: PlayerModuleProps) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [volume, setVolume] = useState(80);
+  const [isMuted, setIsMuted] = useState(false);
   const isDraggingTimeline = useRef(false);
 
   // Pobieranie pozycji odtwarzania
@@ -71,8 +76,22 @@ export const PlayerModule = ({
     setVolume(val);
     try {
         await invoke("set_volume", { volume: val / 100 });
+        if (val > 0 && isMuted) {
+            setIsMuted(false);
+            await invoke("wycisz", { mute: false });
+        }
     } catch (e) {
         console.error("Volume error:", e);
+    }
+  };
+
+  const toggleMute = async () => {
+    const nextMute = !isMuted;
+    setIsMuted(nextMute);
+    try {
+        await invoke("wycisz", { mute: nextMute });
+    } catch (e) {
+        console.error("Mute error:", e);
     }
   };
 
@@ -138,9 +157,11 @@ export const PlayerModule = ({
 
         {trackInfo && (
             <div className="audiophile-panel">
-                <span className="badge-format">{trackInfo.format}</span>
-                <span className="tech-info">{trackInfo.sample_rate ? (trackInfo.sample_rate / 1000).toFixed(1) : "0"} kHz</span>
-                <span className="tech-info">{trackInfo.bitrate ? Math.round(trackInfo.bitrate / 1000) : "0"} kbps</span>
+                <div className="audiophile-row">
+                  <span className="badge-format">{trackInfo.format}</span>
+                  <span className="tech-info">{trackInfo.sample_rate ? (trackInfo.sample_rate / 1000).toFixed(1) : "0"} kHz</span>
+                  <span className="tech-info">{trackInfo.bitrate ? Math.round(trackInfo.bitrate / 1000) : "0"} kbps</span>
+                </div>
             </div>
         )}
       </div>
@@ -173,6 +194,7 @@ export const PlayerModule = ({
         </div>
 
         <div className="main-btns">
+            <button className="btn-small btn-secondary" onClick={onPrevious}>⏮</button>
             {isPlaying && !isPaused ? (
                 <button className="btn-circle btn-primary" onClick={onPause}>⏸</button>
             ) : (
@@ -191,10 +213,13 @@ export const PlayerModule = ({
             >
               ■
             </button>
+            <button className="btn-small btn-secondary" onClick={onNext}>⏭</button>
         </div>
 
         <div className="volume-control">
-            <span className="vol-icon">{volume === 0 ? "🔇" : "🔊"}</span>
+            <button className="btn-icon-small" onClick={toggleMute}>
+              {isMuted || volume === 0 ? "🔇" : "🔊"}
+            </button>
             <input
                 type="range"
                 className="vol-slider"

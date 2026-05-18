@@ -67,19 +67,40 @@ export const PlaylistModule = ({
     }
   };
 
+  const clearLibrary = async () => {
+    if (window.confirm("Czy na pewno chcesz wyczyścić całą bibliotekę?")) {
+        try {
+            await invoke("clear_library_cmd");
+            setDeadTracks(new Set());
+            await loadTracks();
+        } catch (error) {
+            console.error("Błąd czyszczenia bazy:", error);
+        }
+    }
+  };
+
   return (
     <div className="bento-module playlist-module">
       <div className="module-header">
         <div className="header-title-group">
           <h3>BIBLIOTEKA UTWORÓW</h3>
-          <button
-            className={`btn-sync ${isSyncing ? 'syncing' : ''}`}
-            onClick={syncLibrary}
-            disabled={isSyncing}
-            title="Synchronizuj status plików"
-          >
-            🔄
-          </button>
+          <div className="header-actions">
+            <button
+                className={`btn-sync ${isSyncing ? 'syncing' : ''}`}
+                onClick={syncLibrary}
+                disabled={isSyncing}
+                title="Synchronizuj status plików"
+            >
+                🔄
+            </button>
+            <button
+                className="btn-clear"
+                onClick={clearLibrary}
+                title="Wyczyść bibliotekę"
+            >
+                🗑️
+            </button>
+          </div>
         </div>
       </div>
       <div className="playlist-container">

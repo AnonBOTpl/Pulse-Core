@@ -94,8 +94,19 @@ fn seek(seconds: f64, state: State<'_, AudioState>) -> Result<(), String> {
 
 #[tauri::command]
 fn set_volume(volume: f32, state: State<'_, AudioState>) -> Result<(), String> {
-    let manager = state.manager.lock().unwrap();
+    let mut manager = state.manager.lock().unwrap();
     manager.set_volume(volume)
+}
+
+#[tauri::command]
+fn wycisz(mute: bool, state: State<'_, AudioState>) -> Result<(), String> {
+    let mut manager = state.manager.lock().unwrap();
+    manager.wycisz(mute)
+}
+
+#[tauri::command]
+async fn clear_library_cmd(db_state: State<'_, DbState>) -> Result<(), String> {
+    db::clear_library(&db_state.pool).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -239,6 +250,8 @@ pub fn run() {
             sync_library,
             seek,
             set_volume,
+            wycisz,
+            clear_library_cmd,
             get_playback_position
         ])
         .run(tauri::generate_context!())

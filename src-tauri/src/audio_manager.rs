@@ -11,6 +11,8 @@ pub struct AudioState {
 pub struct AudioManager {
     _sink_handle: MixerDeviceSink,
     player: Arc<Mutex<Player>>,
+    last_volume: f32,
+    is_muted: bool,
 }
 
 impl AudioManager {
@@ -23,6 +25,8 @@ impl AudioManager {
         Self {
             _sink_handle: sink_handle,
             player: Arc::new(Mutex::new(player)),
+            last_volume: 1.0,
+            is_muted: false,
         }
     }
 
@@ -78,9 +82,23 @@ impl AudioManager {
             .map_err(|e| format!("Błąd przewijania: {:?}", e))
     }
 
-    pub fn set_volume(&self, volume: f32) -> Result<(), String> {
+    pub fn set_volume(&mut self, volume: f32) -> Result<(), String> {
+        self.last_volume = volume;
+        if !self.is_muted {
+            let player = self.player.lock().unwrap();
+            player.set_volume(volume);
+        }
+        Ok(())
+    }
+
+    pub fn wycisz(&mut self, mute: bool) -> Result<(), String> {
+        self.is_muted = mute;
         let player = self.player.lock().unwrap();
-        player.set_volume(volume);
+        if mute {
+            player.set_volume(0.0);
+        } else {
+            player.set_volume(self.last_volume);
+        }
         Ok(())
     }
 

@@ -27,7 +27,9 @@ pub fn extract_metadata(path_str: &str) -> Result<TrackMetadata, String> {
     let properties = tagged_file.properties();
     let duration = properties.duration().as_secs_f64();
     let sample_rate = properties.sample_rate().unwrap_or(0);
-    let bitrate = properties.audio_bitrate().unwrap_or(0);
+    let bitrate = properties.audio_bitrate()
+        .or_else(|| properties.overall_bitrate())
+        .unwrap_or(0);
     let format = path.extension()
         .and_then(|s| s.to_str())
         .unwrap_or("Unknown")

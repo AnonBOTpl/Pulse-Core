@@ -91,6 +91,17 @@ function App() {
     }
   };
 
+  const handleNext = () => {
+    if (trackInfo) skipToNext(trackInfo.path);
+  };
+
+  const handlePrevious = () => {
+    if (!trackInfo || allTracks.length === 0) return;
+    const currentIndex = allTracks.findIndex(t => t.path === trackInfo.path);
+    const prevIndex = (currentIndex - 1 + allTracks.length) % allTracks.length;
+    handleTrackSelect(allTracks[prevIndex].path);
+  };
+
   const handlePlayDirect = async (path: string) => {
     if (isPaused) {
         await invoke("wznow");
@@ -112,6 +123,8 @@ function App() {
             onPlay={handlePlayDirect}
             onPause={handlePause}
             onStop={handleStop}
+            onNext={handleNext}
+            onPrevious={handlePrevious}
           />
         </div>
 

@@ -52,3 +52,8 @@ pub async fn init_db(app_handle: &AppHandle) -> Result<Pool<Sqlite>, sqlx::Error
 
     Ok(pool)
 }
+
+pub async fn clear_library(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM tracks").execute(pool).await?;
+    Ok(())
+}

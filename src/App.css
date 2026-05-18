@@ -100,10 +100,14 @@ body, html, #root {
 
 .audiophile-panel {
   display: flex;
-  flex-direction: column;
   align-items: flex-end;
-  gap: 0.3rem;
   font-family: monospace;
+}
+
+.audiophile-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
 }
 
 .badge-format {
@@ -172,9 +176,48 @@ body, html, #root {
   box-shadow: 0 0 20px var(--accent-dim);
 }
 
+.btn-small {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-small:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent-dim);
+}
+
+.btn-icon-small {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0.2rem;
+  transition: color 0.2s ease;
+}
+
+.btn-icon-small:hover {
+  color: var(--accent);
+}
+
 .vol-slider {
   accent-color: var(--accent);
-  width: 100px;
+  width: 80px;
+}
+
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 /* Playlist Module */
@@ -218,6 +261,27 @@ body, html, #root {
 .btn-sync:hover {
   opacity: 1;
   transform: rotate(45deg);
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.btn-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  opacity: 0.6;
+  transition: all 0.3s ease;
+  padding: 0.2rem;
+}
+
+.btn-clear:hover {
+  opacity: 1;
+  filter: drop-shadow(0 0 5px var(--danger));
 }
 
 .btn-sync.syncing {
