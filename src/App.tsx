@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 import { PlayerModule } from "./components/PlayerModule";
@@ -20,6 +20,26 @@ function App() {
   const [deadTracks, setDeadTracks] = useState<Set<string>>(new Set());
   const [allTracks, setAllTracks] = useState<TrackMetadata[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Auto-advance logic
+  useEffect(() => {
+    let interval: number;
+    if (isPlaying && !isPaused && trackInfo) {
+      interval = window.setInterval(async () => {
+        try {
+          const pos = await invoke<number>("get_playback_position");
+          // Jeśli jesteśmy na samym końcu (tolerancja 0.5s)
+          if (pos > 0 && trackInfo.duration > 0 && pos >= trackInfo.duration - 0.5) {
+            console.log("Koniec utworu, przechodzę dalej...");
+            handleNext();
+          }
+        } catch (e) {
+          console.error("Auto-advance check error:", e);
+        }
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, isPaused, trackInfo, allTracks]);
 
   const handleTrackSelect = async (path: string) => {
     setError(null);

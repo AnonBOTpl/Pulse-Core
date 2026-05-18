@@ -1,6 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
+import {
+  Play,
+  Pause,
+  Square,
+  SkipBack,
+  SkipForward,
+  Volume2,
+  VolumeX,
+  FileAudio,
+  FolderOpen
+} from "lucide-react";
 
 interface TrackMetadata {
   path: string;
@@ -160,7 +171,7 @@ export const PlayerModule = ({
                 <div className="audiophile-row">
                   <span className="badge-format">{trackInfo.format}</span>
                   <span className="tech-info">{trackInfo.sample_rate ? (trackInfo.sample_rate / 1000).toFixed(1) : "0"} kHz</span>
-                  <span className="tech-info">{trackInfo.bitrate ? Math.round(trackInfo.bitrate / 1000) : "0"} kbps</span>
+                  <span className="tech-info">{trackInfo.bitrate ? Math.round(trackInfo.bitrate) : "0"} kbps</span>
                 </div>
             </div>
         )}
@@ -186,24 +197,28 @@ export const PlayerModule = ({
       <div className="player-controls-row">
         <div className="import-controls">
           <button className="btn-icon btn-secondary" onClick={selectFile} title="Dodaj plik">
-            📂
+            <FileAudio size={20} />
           </button>
           <button className="btn-icon btn-secondary" onClick={selectFolder} title="Dodaj folder">
-            📁
+            <FolderOpen size={20} />
           </button>
         </div>
 
         <div className="main-btns">
-            <button className="btn-small btn-secondary" onClick={onPrevious}>⏮</button>
+            <button className="btn-small btn-secondary" onClick={onPrevious}>
+              <SkipBack size={20} fill="currentColor" />
+            </button>
             {isPlaying && !isPaused ? (
-                <button className="btn-circle btn-primary" onClick={onPause}>⏸</button>
+                <button className="btn-circle btn-primary" onClick={onPause}>
+                  <Pause size={24} fill="currentColor" />
+                </button>
             ) : (
                 <button
                   className="btn-circle btn-primary"
                   onClick={() => trackInfo && onPlay(trackInfo.path)}
                   disabled={!trackInfo}
                 >
-                  ▶
+                  <Play size={24} fill="currentColor" style={{marginLeft: '2px'}} />
                 </button>
             )}
             <button
@@ -211,14 +226,16 @@ export const PlayerModule = ({
               onClick={onStop}
               disabled={!isPlaying && !isPaused}
             >
-              ■
+              <Square size={24} fill="currentColor" />
             </button>
-            <button className="btn-small btn-secondary" onClick={onNext}>⏭</button>
+            <button className="btn-small btn-secondary" onClick={onNext}>
+              <SkipForward size={20} fill="currentColor" />
+            </button>
         </div>
 
         <div className="volume-control">
             <button className="btn-icon-small" onClick={toggleMute}>
-              {isMuted || volume === 0 ? "🔇" : "🔊"}
+              {isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
             </button>
             <input
                 type="range"

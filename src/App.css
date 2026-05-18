@@ -117,6 +117,7 @@ body, html, #root {
   border-radius: 4px;
   font-size: 0.7rem;
   font-weight: bold;
+  box-shadow: 0 0 10px var(--accent-dim);
 }
 
 .tech-info {
@@ -168,12 +169,20 @@ body, html, #root {
   transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.btn-primary { background: var(--accent); color: #000; }
+.btn-primary {
+  background: var(--accent);
+  color: #000;
+  box-shadow: 0 0 15px var(--accent-dim);
+}
 .btn-danger { background: rgba(255, 62, 62, 0.1); color: var(--danger); border: 1px solid rgba(255, 62, 62, 0.2); }
 
 .btn-circle:hover:not(:disabled) {
   transform: scale(1.1);
-  box-shadow: 0 0 20px var(--accent-dim);
+  box-shadow: 0 0 25px var(--accent-dim);
+}
+
+.btn-circle:active:not(:disabled) {
+  transform: scale(0.92);
 }
 
 .btn-small {
@@ -193,6 +202,11 @@ body, html, #root {
 .btn-small:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: var(--accent-dim);
+  color: var(--accent);
+}
+
+.btn-small:active {
+  transform: scale(0.9);
 }
 
 .btn-icon-small {
@@ -200,12 +214,34 @@ body, html, #root {
   border: none;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.2rem;
   transition: color 0.2s ease;
 }
 
 .btn-icon-small:hover {
+  color: var(--accent);
+}
+
+.btn-icon {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent-dim);
   color: var(--accent);
 }
 
@@ -256,11 +292,13 @@ body, html, #root {
   opacity: 0.6;
   transition: all 0.3s ease;
   padding: 0.2rem;
+  color: var(--text-main);
+  display: flex;
 }
 
 .btn-sync:hover {
   opacity: 1;
-  transform: rotate(45deg);
+  color: var(--accent);
 }
 
 .header-actions {
@@ -277,16 +315,20 @@ body, html, #root {
   opacity: 0.6;
   transition: all 0.3s ease;
   padding: 0.2rem;
+  color: var(--text-main);
+  display: flex;
 }
 
 .btn-clear:hover {
   opacity: 1;
+  color: var(--danger);
   filter: drop-shadow(0 0 5px var(--danger));
 }
 
 .btn-sync.syncing {
   animation: spin 1s linear infinite;
   opacity: 1;
+  color: var(--accent);
 }
 
 @keyframes spin {
@@ -348,6 +390,7 @@ body, html, #root {
 
 .tracks-table tr.active {
   color: var(--accent);
+  text-shadow: 0 0 10px var(--accent-dim);
 }
 
 .tracks-table tr.dead-link {
@@ -377,6 +420,7 @@ body, html, #root {
   flex: 1;
   background: var(--accent);
   border-radius: 2px 2px 0 0;
+  box-shadow: 0 0 10px var(--accent-dim);
   animation: pulse 1.5s ease-in-out infinite alternate;
 }
 

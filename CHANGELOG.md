@@ -2,6 +2,21 @@
 
 Wszystkie istotne zmiany w tym projekcie będą dokumentowane w tym pliku.
 
+## [0.7.0] - 2026-05-22
+
+### Dodano
+- **Auto-advance:** Automatyczne przechodzenie do kolejnego utworu po zakończeniu obecnego.
+- **Profesjonalne Ikony:** Zastąpienie emoji systemowych zestawem ikon SVG z biblioteki `lucide-react`.
+- **Taktylne Animacje:** Nowe efekty CSS (skalowanie, neony, responsywne stany `:active`) poprawiające odczucia z użytkowania.
+
+### Zmieniono
+- **Migracja silnika audio:** Całkowite przejście na silnik **BASS** (via `bass-rs`) w celu wyeliminowania problemów z mikro-stutteringiem oraz brakiem wsparcia dla przewijania (seeking) w `rodio`.
+- Refaktoryzacja `AudioManager`: optymalizacja obsługi strumieni BASS, zarządzania głośnością i precyzyjnego pozycjonowania utworu.
+
+### Naprawiono
+- **Bitrate Display:** Poprawiono błąd wyświetlania bitrate (usunięto zbędne dzielenie przez 1000).
+- **ID Reset:** Funkcja czyszczenia biblioteki teraz poprawnie resetuje licznik ID w bazie danych (`sqlite_sequence`).
+
 ## [0.6.0] - 2026-05-22
 
 ### Dodano

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { RefreshCcw, Trash2 } from "lucide-react";
 
 interface Track {
   path: string;
@@ -91,14 +92,14 @@ export const PlaylistModule = ({
                 disabled={isSyncing}
                 title="Synchronizuj status plików"
             >
-                🔄
+                <RefreshCcw size={16} />
             </button>
             <button
                 className="btn-clear"
                 onClick={clearLibrary}
                 title="Wyczyść bibliotekę"
             >
-                🗑️
+                <Trash2 size={16} />
             </button>
           </div>
         </div>

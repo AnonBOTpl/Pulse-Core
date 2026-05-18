@@ -1,30 +1,26 @@
-use rodio::{Decoder, Player, DeviceSinkBuilder, MixerDeviceSink};
-use std::fs::File;
-use std::io::BufReader;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use bass_rs::prelude::*;
+use bass_rs::Bass;
+use std::sync::Mutex;
 
 pub struct AudioState {
     pub manager: Mutex<AudioManager>,
 }
 
 pub struct AudioManager {
-    _sink_handle: MixerDeviceSink,
-    player: Arc<Mutex<Player>>,
+    _bass: Bass,
+    current_channel: Option<StreamChannel>,
     last_volume: f32,
     is_muted: bool,
 }
 
 impl AudioManager {
     pub fn new() -> Self {
-        let sink_handle = DeviceSinkBuilder::open_default_sink()
-            .expect("Nie udało się otworzyć domyślnego urządzenia wyjściowego audio");
-
-        let player = Player::connect_new(&sink_handle.mixer());
+        // Inicjalizacja BASS: urządzenie domyślne (-1), 44100 Hz
+        let bass = Bass::init_default().expect("Nie udało się zainicjować silnika BASS");
 
         Self {
-            _sink_handle: sink_handle,
-            player: Arc::new(Mutex::new(player)),
+            _bass: bass,
+            current_channel: None,
             last_volume: 1.0,
             is_muted: false,
         }
@@ -32,78 +28,86 @@ impl AudioManager {
 
     pub fn odtwarzaj(&mut self, sciezka: &str) -> Result<(), String> {
         if !std::path::Path::new(sciezka).exists() {
-            let msg = "FileNotFound".to_string();
-            eprintln!("BŁĄD: Plik nie istnieje: {}", sciezka);
-            return Err(msg);
+            return Err("FileNotFound".to_string());
         }
 
-        let file = File::open(sciezka).map_err(|e| {
-            let msg = format!("BŁĄD RODIO przy próbie otwarcia pliku: {}", e);
-            eprintln!("{}", msg);
-            msg
-        })?;
+        // Zatrzymaj poprzedni kanał (zostanie zwolniony przy Drop)
+        if let Some(channel) = &self.current_channel {
+            let _ = channel.stop();
+        }
 
-        let reader = BufReader::new(file);
-        let source = Decoder::try_from(reader).map_err(|e| {
-            let msg = format!("BŁĄD RODIO podczas dekodowania: {}", e);
-            eprintln!("{}", msg);
-            msg
-        })?;
+        // Utwórz nowy kanał strumieniowy z pliku (offset 0)
+        let channel = StreamChannel::load_from_path(sciezka, 0)
+            .map_err(|e| format!("BŁĄD BASS przy otwieraniu pliku: {:?}", e))?;
 
-        let player = self.player.lock().unwrap();
-        player.stop(); // Czyści kolejkę i zatrzymuje
-        player.append(source);
-        player.play();
+        // Ustaw głośność (BASS używa wartości 0.0 - 1.0)
+        let vol = if self.is_muted { 0.0 } else { self.last_volume };
+        let _ = channel.set_volume(vol);
+
+        // Zacznij odtwarzanie (restart = true)
+        channel.play(true).map_err(|e| format!("BŁĄD BASS podczas odtwarzania: {:?}", e))?;
+
+        self.current_channel = Some(channel);
 
         Ok(())
     }
 
     pub fn pauzuj(&self) -> Result<(), String> {
-        let player = self.player.lock().unwrap();
-        player.pause();
+        if let Some(channel) = &self.current_channel {
+            channel.pause().map_err(|e| format!("Błąd pauzy: {:?}", e))?;
+        }
         Ok(())
     }
 
     pub fn wznow(&self) -> Result<(), String> {
-        let player = self.player.lock().unwrap();
-        player.play();
+        if let Some(channel) = &self.current_channel {
+            channel.play(false).map_err(|e| format!("Błąd wznowienia: {:?}", e))?;
+        }
         Ok(())
     }
 
     pub fn zatrzymaj(&mut self) -> Result<(), String> {
-        let player = self.player.lock().unwrap();
-        player.stop();
+        if let Some(channel) = &self.current_channel {
+            channel.stop().map_err(|e| format!("Błąd zatrzymania: {:?}", e))?;
+        }
+        self.current_channel = None;
         Ok(())
     }
 
     pub fn seek(&self, seconds: f64) -> Result<(), String> {
-        let player = self.player.lock().unwrap();
-        player.try_seek(Duration::from_secs_f64(seconds))
-            .map_err(|e| format!("Błąd przewijania: {:?}", e))
+        if let Some(channel) = &self.current_channel {
+            // set_position oczekuje milisekund
+            channel.set_position(seconds * 1000.0)
+                .map_err(|e| format!("Błąd przewijania: {:?}", e))?;
+        }
+        Ok(())
     }
 
     pub fn set_volume(&mut self, volume: f32) -> Result<(), String> {
         self.last_volume = volume;
         if !self.is_muted {
-            let player = self.player.lock().unwrap();
-            player.set_volume(volume);
+            if let Some(channel) = &self.current_channel {
+                channel.set_volume(volume).map_err(|e| format!("Błąd głośności: {:?}", e))?;
+            }
         }
         Ok(())
     }
 
     pub fn wycisz(&mut self, mute: bool) -> Result<(), String> {
         self.is_muted = mute;
-        let player = self.player.lock().unwrap();
-        if mute {
-            player.set_volume(0.0);
-        } else {
-            player.set_volume(self.last_volume);
+        if let Some(channel) = &self.current_channel {
+            let vol = if mute { 0.0 } else { self.last_volume };
+            channel.set_volume(vol).map_err(|e| format!("Błąd wyciszania: {:?}", e))?;
         }
         Ok(())
     }
 
     pub fn get_position(&self) -> f64 {
-        let player = self.player.lock().unwrap();
-        player.get_pos().as_secs_f64()
+        if let Some(channel) = &self.current_channel {
+            // get_position zwraca milisekundy
+            channel.get_position().unwrap_or(0.0) / 1000.0
+        } else {
+            0.0
+        }
     }
 }
