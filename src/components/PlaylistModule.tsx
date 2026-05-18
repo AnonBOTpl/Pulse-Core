@@ -1,0 +1,76 @@
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+
+interface Track {
+  path: string;
+  title: string;
+  artist: string;
+  duration: number;
+}
+
+interface PlaylistModuleProps {
+  onSelectTrack: (path: string) => void;
+  currentPath?: string;
+}
+
+export const PlaylistModule = ({ onSelectTrack, currentPath }: PlaylistModuleProps) => {
+  const [tracks, setTracks] = useState<Track[]>([]);
+
+  const loadTracks = async () => {
+    try {
+      const result = await invoke<Track[]>("get_all_tracks");
+      setTracks(result);
+    } catch (error) {
+      console.error("Nie udało się załadować playlisty:", error);
+    }
+  };
+
+  useEffect(() => {
+    loadTracks();
+    // Odświeżaj co jakiś czas lub po akcji (uproszczenie)
+    const interval = setInterval(loadTracks, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="bento-module playlist-module">
+      <div className="module-header">
+        <h3>BIBLIOTEKA UTWORÓW</h3>
+      </div>
+      <div className="playlist-container">
+        {tracks.length === 0 ? (
+          <p className="empty-msg">Brak utworów w bazie danych. Wybierz plik, aby go dodać.</p>
+        ) : (
+          <table className="tracks-table">
+            <thead>
+              <tr>
+                <th>TYTUŁ</th>
+                <th>WYKONAWCA</th>
+                <th className="text-right">CZAS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tracks.map((track, idx) => (
+                <tr
+                  key={idx}
+                  className={currentPath === track.path ? "active" : ""}
+                  onClick={() => onSelectTrack(track.path)}
+                >
+                  <td className="track-title-cell">{track.title}</td>
+                  <td>{track.artist}</td>
+                  <td className="text-right">{formatDuration(track.duration)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+};

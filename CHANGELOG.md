@@ -2,6 +2,15 @@
 
 Wszystkie istotne zmiany w tym projekcie będą dokumentowane w tym pliku.
 
+## [0.3.0] - 2026-05-22
+
+### Dodano
+- Nowoczesny interfejs użytkownika oparty na Bento Grid z efektami glassmorphism.
+- Moduł biblioteki utworów (Playlist Module) z automatycznym odświeżaniem listy z bazy SQLite.
+- Modularny panel sterowania (Player Module) z timeline'em i głośnością.
+- Animowany placeholder wizualizacji spektrum (Visualizer Module).
+- Pełna integracja między listą utworów a silnikiem odtwarzania.
+
 ## [0.2.0] - 2026-05-22
 
 ### Dodano

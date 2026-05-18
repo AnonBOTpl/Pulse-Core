@@ -1,22 +1,101 @@
+import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
-import { PlayerControls } from "./components/PlayerControls";
+import { PlayerModule } from "./components/PlayerModule";
+import { PlaylistModule } from "./components/PlaylistModule";
+import { VisualizerModule } from "./components/VisualizerModule";
+
+interface TrackMetadata {
+  path: string;
+  title: string;
+  artist: string;
+  duration: number;
+}
 
 function App() {
+  const [trackInfo, setTrackInfo] = useState<TrackMetadata | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleTrackSelect = async (path: string) => {
+    setError(null);
+    try {
+      await invoke("zatrzymaj");
+      await invoke("odtwarzaj", { sciezka: path });
+      setIsPlaying(true);
+      setIsPaused(false);
+
+      const info = await invoke<TrackMetadata>("load_track_info", { sciezka: path });
+      setTrackInfo(info);
+    } catch (err) {
+      setError(String(err));
+      setIsPlaying(false);
+    }
+  };
+
+  const handlePause = async () => {
+    try {
+      await invoke("pauzuj");
+      setIsPaused(true);
+    } catch (err) {
+      setError(String(err));
+    }
+  };
+
+  const handleStop = async () => {
+    try {
+      await invoke("zatrzymaj");
+      setIsPlaying(false);
+      setIsPaused(false);
+    } catch (err) {
+      setError(String(err));
+    }
+  };
+
+  const handlePlayDirect = async (path: string) => {
+    if (isPaused) {
+        await invoke("wznow");
+        setIsPaused(false);
+        setIsPlaying(true);
+    } else {
+        handleTrackSelect(path);
+    }
+  }
+
   return (
-    <main className="container">
-      <header>
-        <h1>PulseCore Audio</h1>
-        <p className="subtitle">Nowoczesny odtwarzacz dźwięku</p>
-      </header>
+    <div className="app-shell">
+      <div className="bento-grid">
+        <div className="grid-area-player">
+          <PlayerModule
+            trackInfo={trackInfo}
+            isPlaying={isPlaying}
+            isPaused={isPaused}
+            onPlay={handlePlayDirect}
+            onPause={handlePause}
+            onStop={handleStop}
+            onTrackLoaded={setTrackInfo}
+          />
+        </div>
 
-      <section className="player-section">
-        <PlayerControls />
-      </section>
+        <div className="grid-area-visualizer">
+          <VisualizerModule />
+        </div>
 
-      <footer>
-        <p>&copy; 2026 PulseCore Team</p>
-      </footer>
-    </main>
+        <div className="grid-area-playlist">
+          <PlaylistModule
+            onSelectTrack={handleTrackSelect}
+            currentPath={trackInfo?.path}
+          />
+        </div>
+      </div>
+
+      {error && (
+        <div className="global-error-toast">
+          {error}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -4,7 +4,7 @@ use lofty::tag::Accessor;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, sqlx::FromRow)]
 pub struct TrackMetadata {
     pub path: String,
     pub title: String,

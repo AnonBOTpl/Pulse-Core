@@ -64,6 +64,20 @@ async fn load_track_info(
     Ok(meta)
 }
 
+#[tauri::command]
+async fn get_all_tracks(
+    db_state: State<'_, DbState>,
+) -> Result<Vec<TrackMetadata>, String> {
+    let tracks = sqlx::query_as::<_, TrackMetadata>(
+        "SELECT path, title, artist, duration FROM tracks ORDER BY id DESC"
+    )
+    .fetch_all(&db_state.pool)
+    .await
+    .map_err(|e| format!("Błąd bazy danych: {}", e))?;
+
+    Ok(tracks)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -85,7 +99,8 @@ pub fn run() {
             pauzuj,
             wznow,
             zatrzymaj,
-            load_track_info
+            load_track_info,
+            get_all_tracks
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
