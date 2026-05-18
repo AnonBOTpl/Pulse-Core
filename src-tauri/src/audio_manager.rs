@@ -26,34 +26,21 @@ impl AudioManager {
         }
     }
 
+    pub fn przygotuj_do_zmiany(&mut self) {
+        if let Some(channel) = self.current_channel.take() {
+            let _ = channel.stop();
+            // Jawne wymuszenie Drop następuje tutaj przez wyjście z zakresu
+        }
+    }
+
     pub fn odtwarzaj(&mut self, sciezka: &str) -> Result<(), String> {
         if !std::path::Path::new(sciezka).exists() {
             return Err("FileNotFound".to_string());
         }
 
-        // Kluczowe: Jawne zwolnienie poprzedniego strumienia przed otwarciem nowego.
-        // Ustawienie na None powoduje wywołanie Drop dla StreamChannel, co wykonuje BASS_StreamFree.
-        if let Some(channel) = self.current_channel.take() {
-            let _ = channel.stop();
-            // Drop następuje tutaj
-        }
-
-        // Utwórz nowy kanał strumieniowy z pliku (offset 0) z pętlą retry dla błędu FileOpen
-        let mut retry_count = 0;
-        let channel = loop {
-            match StreamChannel::load_from_path(sciezka, 0) {
-                Ok(ch) => break ch,
-                Err(e) => {
-                    if retry_count < 5 {
-                        retry_count += 1;
-                        eprintln!("Błąd otwarcia pliku (prawdopodobnie blokada), ponawiam próbę {}/5...", retry_count);
-                        std::thread::sleep(std::time::Duration::from_millis(20));
-                        continue;
-                    }
-                    return Err(format!("BŁĄD BASS przy otwieraniu pliku po 5 próbach: {:?}", e));
-                }
-            }
-        };
+        // Spróbuj utworzyć kanał
+        let channel = StreamChannel::load_from_path(sciezka, 0)
+            .map_err(|e| format!("{:?}", e))?;
 
         // Ustaw głośność (BASS używa wartości 0.0 - 1.0)
         let vol = if self.is_muted { 0.0 } else { self.last_volume };
@@ -128,17 +115,9 @@ impl AudioManager {
 
     pub fn get_fft_data(&self) -> Vec<f32> {
         if let Some(channel) = &self.current_channel {
-            // Sprawdź czy kanał jest wciąż aktywny
-            match channel.get_playback_state() {
-                Ok(PlaybackState::Playing) | Ok(PlaybackState::Paused) | Ok(PlaybackState::Stalled) => {
-                    // FFT512 zwraca 256 pasm jako float. Oczekiwany rozmiar w bajtach to 256 * 4 = 1024.
-                    channel.get_data(DataType::FFT512, 1024).unwrap_or_else(|e| {
-                        eprintln!("BŁĄD FFT BASS: {:?}", e);
-                        vec![0.0; 256]
-                    })
-                },
-                _ => vec![0.0; 256],
-            }
+            // FFT512 zwraca 256 pasm jako float. Oczekiwany rozmiar w bajtach to 256 * 4 = 1024.
+            // Bierzemy dane bezpośrednio bez sprawdzania stanu, aby uniknąć zbędnych blokad.
+            channel.get_data(DataType::FFT512, 1024).unwrap_or_else(|_| vec![0.0; 256])
         } else {
             vec![0.0; 256]
         }

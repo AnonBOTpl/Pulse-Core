@@ -14,9 +14,30 @@ async fn odtwarzaj(
     state: State<'_, AudioState>,
     db_state: State<'_, DbState>,
 ) -> Result<(), String> {
-    let result = {
+    // 1. Jawnie zwalniamy stary kanał, aby odblokować plik (krótka blokada Mutexu)
+    {
         let mut manager = state.manager.lock().unwrap();
-        manager.odtwarzaj(&sciezka)
+        manager.przygotuj_do_zmiany();
+    }
+
+    // 2. Pętla ponawiania otwarcia pliku POZA Mutexem
+    let mut retry_count = 0;
+    let result = loop {
+        let res = {
+            let mut manager = state.manager.lock().unwrap();
+            manager.odtwarzaj(&sciezka)
+        };
+
+        match res {
+            Ok(_) => break Ok(()),
+            Err(e) if e.contains("FileOpen") && retry_count < 5 => {
+                retry_count += 1;
+                eprintln!("Blokada pliku, ponawiam {}/5...", retry_count);
+                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                continue;
+            },
+            Err(e) => break Err(e),
+        }
     };
 
     match result {
