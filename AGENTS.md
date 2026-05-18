@@ -7,9 +7,9 @@ Obecny rok: 2026. Bezwzględnie korzystaj z najnowszych, stabilnych wersji bibli
 ## Stos Technologiczny
 *   **Backend (Rdzeń):** Rust
 *   **Most Komunikacyjny:** Tauri v2+
-*   **Silnik Audio:** `bass-rs` (Zarządzanie odtwarzaniem, DSP, wyciąganie tagów, buforowanie, gapless)
+*   **Silnik Audio:** `rodio` v0.22.2+ (Natywny silnik audio w Rust, bezpieczny i wydajny)
 *   **Baza Danych:** SQLite (obsługiwane asynchronicznie przez `sqlx`)
-*   **Obliczenia FFT:** `rustfft` (uruchamiane po stronie Rusta, wysyłające zoptymalizowane tablice przez Tauri IPC do frontendu)
+*   **Obliczenia FFT:** `rustfft` v6.4.1+ (uruchamiane po stronie Rusta, wysyłające zoptymalizowane tablice przez Tauri IPC do frontendu)
 *   **Frontend (UI):** React + TypeScript (Vite) oraz React Three Fiber / WebGL do wizualizacji.
 *   **Stylowanie:** Tailwind CSS (opcjonalnie) oraz dynamiczne zmienne CSS (CSS Custom Properties) do obsługi skórek.
 
@@ -21,7 +21,7 @@ Obecny rok: 2026. Bezwzględnie korzystaj z najnowszych, stabilnych wersji bibli
 5.  **Integracje AI:** Jeśli w ramach rozwoju projektu (np. automatyzacja, asystenci) zostaniesz poproszony o implementację rozwiązań Google AI, **wymagane jest** korzystanie z ujednoliconej biblioteki `google-genai`. Bezwzględnie zakazuje się wykorzystywania jakichkolwiek przestarzałych bibliotek oraz odwoływania się do starszych modeli (w tym całkowity zakaz używania nazw takich jak "Model 1.5 Pro").
 
 ## Architektura i Pętla Audio
-*   Zamiast `BASS_SYNC_END` z .NET, używaj odpowiedników z `bass-rs` w asynchronicznych wątkach Rusta, wysyłając eventy do interfejsu Reacta.
+*   Wykorzystuj `rodio::Sink` do zarządzania odtwarzaniem. Zdarzenia zakończenia utworu obsługuj asynchronicznie, monitorując stan `Sink` lub wykorzystując potoki audio.
 *   Zadbaj o wysoką przepustowość kanałów IPC podczas wysyłania danych FFT (Float Arrays) z Rusta do Frontendu (najlepiej batchowanie paczek danych w celu utrzymania stałych 60/120 FPS).
 
 ## Fazy Rozwoju
