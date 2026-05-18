@@ -42,6 +42,12 @@ async fn odtwarzaj(
 }
 
 #[tauri::command]
+fn get_fft_data(state: State<'_, AudioState>) -> Vec<f32> {
+    let manager = state.manager.lock().unwrap();
+    manager.get_fft_data()
+}
+
+#[tauri::command]
 async fn sync_library(
     db_state: State<'_, DbState>,
 ) -> Result<(), String> {
@@ -252,7 +258,8 @@ pub fn run() {
             set_volume,
             wycisz,
             clear_library_cmd,
-            get_playback_position
+            get_playback_position,
+            get_fft_data
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

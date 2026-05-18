@@ -8,6 +8,7 @@ Wszystkie istotne zmiany w tym projekcie będą dokumentowane w tym pliku.
 - **Auto-advance:** Automatyczne przechodzenie do kolejnego utworu po zakończeniu obecnego.
 - **Profesjonalne Ikony:** Zastąpienie emoji systemowych zestawem ikon SVG z biblioteki `lucide-react`.
 - **Taktylne Animacje:** Nowe efekty CSS (skalowanie, neony, responsywne stany `:active`) poprawiające odczucia z użytkowania.
+- **Wizualizator FFT:** W pełni funkcjonalny moduł analizy widma oparty na Canvas 2D. Oferuje dwa tryby: "Cyber-Bars" (słupki z peak hold) oraz "Cyber-Ring" (pulsujący pierścień). Dodano przycisk płynnego przełączania trybów.
 
 ### Zmieniono
 - **Migracja silnika audio:** Całkowite przejście na silnik **BASS** (via `bass-rs`) w celu wyeliminowania problemów z mikro-stutteringiem oraz brakiem wsparcia dla przewijania (seeking) w `rodio`.

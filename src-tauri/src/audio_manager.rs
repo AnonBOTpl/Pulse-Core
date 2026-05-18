@@ -110,4 +110,13 @@ impl AudioManager {
             0.0
         }
     }
+
+    pub fn get_fft_data(&self) -> Vec<f32> {
+        if let Some(channel) = &self.current_channel {
+            // FFT512 zwraca 256 pasm
+            channel.get_data(DataType::FFT512, 256).unwrap_or_else(|_| vec![0.0; 256])
+        } else {
+            vec![0.0; 256]
+        }
+    }
 }
