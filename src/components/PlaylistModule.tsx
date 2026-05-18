@@ -13,11 +13,19 @@ interface PlaylistModuleProps {
   onSelectTrack: (path: string) => void;
   currentPath?: string;
   deadTracks: Set<string>;
+  setDeadTracks: React.Dispatch<React.SetStateAction<Set<string>>>;
   onTracksLoaded?: (tracks: Track[]) => void;
   refreshTrigger?: number;
 }
 
-export const PlaylistModule = ({ onSelectTrack, currentPath, deadTracks, onTracksLoaded, refreshTrigger }: PlaylistModuleProps) => {
+export const PlaylistModule = ({
+    onSelectTrack,
+    currentPath,
+    deadTracks,
+    setDeadTracks,
+    onTracksLoaded,
+    refreshTrigger
+}: PlaylistModuleProps) => {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -50,6 +58,7 @@ export const PlaylistModule = ({ onSelectTrack, currentPath, deadTracks, onTrack
     setIsSyncing(true);
     try {
       await invoke("sync_library");
+      setDeadTracks(new Set());
       await loadTracks();
     } catch (error) {
       console.error("Błąd synchronizacji:", error);

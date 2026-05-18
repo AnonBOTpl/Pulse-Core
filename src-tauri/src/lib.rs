@@ -127,7 +127,11 @@ async fn get_all_tracks(
     )
     .fetch_all(&db_state.pool)
     .await
-    .map_err(|e| format!("Błąd bazy danych: {}", e))?;
+    .map_err(|e| {
+        let msg = format!("BŁĄD SQL w get_all_tracks: {}", e);
+        eprintln!("{}", msg);
+        msg
+    })?;
 
     Ok(tracks)
 }

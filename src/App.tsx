@@ -124,6 +124,7 @@ function App() {
             onSelectTrack={handleTrackSelect}
             currentPath={trackInfo?.path}
             deadTracks={deadTracks}
+            setDeadTracks={setDeadTracks}
             onTracksLoaded={setAllTracks}
             refreshTrigger={refreshTrigger}
           />

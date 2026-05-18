@@ -5,7 +5,9 @@ Wszystkie istotne zmiany w tym projekcie będą dokumentowane w tym pliku.
 ## [0.5.0] - 2026-05-22
 
 ### Dodano
-- Fix krytyczny: Naprawiono zapytanie SQL w `get_all_tracks` (dodano brakującą kolumnę `available`), co przywróciło wyświetlanie utworów na liście.
+- Fix krytyczny: Naprawiono błąd mapowania SQL w `get_all_tracks`, przywracając widoczność biblioteki utworów.
+- Naprawa UI: Wymuszono przewijanie (scrollbar) listy utworów wewnątrz Bento Grid, naprawiając uciekanie interfejsu poza okno.
+- Synchronizacja "martwych linków": przycisk odświeżania teraz poprawnie usuwa wyszarzenie utworów, które wróciły na dysk.
 - Natychmiastowe odświeżanie UI: dodano `refreshTrigger` do natychmiastowej synchronizacji statusu utworu po udanym odtworzeniu.
 - System synchronizacji biblioteki (Bulk Re-check): przycisk odświeżania statusu plików w bazie danych.
 - Dynamiczny Un-ghosting: automatyczne przywracanie statusu dostępności utworu w UI i bazie danych po udanym odtworzeniu.
