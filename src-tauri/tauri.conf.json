@@ -14,7 +14,8 @@
       {
         "title": "pulsecore",
         "width": 1200,
-        "height": 900
+        "height": 900,
+        "additionalBrowserArgs": "--enable-accelerated-2d-canvas --enable-webgl --ignore-gpu-blocklist --disable-gpu-vsync --force-gpu-rasterization --enable-gpu-rasterization --enable-features=WebAssemblySIMD,SharedArrayBuffer --disable-software-rasterizer --autoplay-policy=no-user-gesture-required"
       }
     ],
     "security": {
