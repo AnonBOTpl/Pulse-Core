@@ -1,17 +1,22 @@
 # CHANGELOG
 
-## [0.9.3] — 2026-05-17
+## [0.9.3] — 2026-05-19
+
+### Added
+- **Custom Cyberpunk Installer** — dedykowany instalator NSIS z mrocznym motywem, własnymi ikonami i dopasowaną kolorystyką (sidebar/header bitmaps).
+- **Wielorozmiarowy zestaw ikon** — pełne wsparcie ikon Windows (`.ico`) oraz ikon systemowych dla aplikacji.
 
 ### Changed
 - **FFT przeniesione do callbacku CPAL** (zero-lag) — FFT liczone na próbkach wychodzących na kartę dźwiękową zamiast z ring buffera w decoder_thread; eliminuje opóźnienie ~8s.
-- **Akumulator między-callbackowy** dla FFT (128–512 mono próbek w jednym wywołaniu CPAL) — 1024-punktowa FFT dostępna co ~4–8 callbacków; natychmiast po akumulacji output jest ważny.
-- **Decoder thread freeze na pauzie** — `continue` zamiast `break` w pętli backpressure, `pushed` flag przed inkrementacją `total_frames`.
-- **Noise floor gate** — `NOISE_FLOOR = 0.01` aplikowany po band correction i sensitivity w `get_fft_data`; eliminuje statyczne kreski przy ciszy.
+- **Akumulator między-callbackowy** dla FFT — natychmiastowa reakcja wizualizacji.
+- **Decoder thread freeze na pauzie** — zapobiega skokom pozycji.
+- **Noise floor gate** — wygładzenie wizualizacji przy ciszy.
 
 ### Fixed
-- **`ring.clear()` usunięty z `Command::Pause`** — przywrócono przycisk Play/Pause; zapobiega skokowi pozycji po Resume (ring przechowuje bufory podczas pauzy).
-- **Process naming Windows** — `tauri.conf.json`: `additionalBrowserArgs` z `--webview-process-program-name=PulseCore --title-is-program-name`; podprocesy WebView2 widoczne jako "PulseCore" w Task Managerze.
-- **Zero-delay mute na wszystkich callbackach CPAL** — `f32_cb` i `i16_cb` sprawdzają `ps.load() != 1` i fill(0.0) z return.
+- **Integracja instalatora NSIS** — naprawiono błędy budowania poprzez poprawną konfigurację zasobów w `tauri.conf.json` i uproszczenie szablonu instalatora.
+- **Process naming Windows** — poprawiono widoczność procesów WebView2 w Menedżerze zadań jako "PulseCore".
+- **Zero-delay mute** — aplikowanie głośności bezpośrednio w callbackach CPAL.
+- **`ring.clear()` przy pauzie** — naprawiono problem "skoku" dźwięku po wznowieniu.
 
 ## [0.9.2] — 2026-05-15
 
