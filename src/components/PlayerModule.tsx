@@ -123,7 +123,7 @@ export const PlayerModule = ({
     try {
       const selected = await open({
         multiple: false,
-        filters: [{ name: "Audio", extensions: ["mp3", "flac", "wav", "ogg"] }],
+        filters: [{ name: "Audio", extensions: ["mp3", "flac", "wav", "ogg", "m4a", "aac"] }],
       });
 
       if (selected && typeof selected === "string") {

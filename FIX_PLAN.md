@@ -167,7 +167,6 @@ Wirtualny scroll dla biblioteki >1000 utworów (react-window / tanstack-virtual)
 
 ## Znane bugi do naprawy
 
-- `wycisz(false)` ustawia volume na 1.0 zamiast poprzedniej wartości
 - Brak wizualnego feedbacku przy zmianie głośności (poza suwakiem)
 - Auto-advance nie wyzwala się gdy utwór jest na pauzie
 - `get_playback_position` może zwracać 0.0 przy pierwszym odczycie po seeku

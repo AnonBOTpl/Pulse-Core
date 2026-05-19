@@ -47,6 +47,7 @@ struct Inner {
     ring: VecDeque<f32>,
     volume: f32,
     is_muted: bool,
+    volume_before_mute: f32,
 }
 
 pub struct AudioManager {
@@ -56,6 +57,7 @@ pub struct AudioManager {
     decoder_handle: Option<JoinHandle<()>>,
     cpal_stream: Option<Stream>,
     play_state: Arc<AtomicI32>,
+    is_finished: Arc<AtomicI32>,
     position: Arc<AtomicF64>,
     duration: Arc<AtomicF64>,
 }
@@ -67,12 +69,14 @@ impl AudioManager {
                 ring: VecDeque::with_capacity(RING_CAPACITY),
                 volume: 1.0,
                 is_muted: false,
+                volume_before_mute: 1.0,
             })),
             fft_state,
             cmd_tx: None,
             decoder_handle: None,
             cpal_stream: None,
             play_state: Arc::new(AtomicI32::new(0)),
+            is_finished: Arc::new(AtomicI32::new(0)),
             position: Arc::new(AtomicF64::new(0.0)),
             duration: Arc::new(AtomicF64::new(0.0)),
         }
@@ -123,6 +127,7 @@ impl AudioManager {
         self.duration.store(duration, Ordering::Release);
         self.position.store(0.0, Ordering::Release);
         self.play_state.store(1, Ordering::Release);
+        self.is_finished.store(0, Ordering::Release);
 
         let inner_for_stream = self.inner.clone();
         let stream = Self::create_output_stream(inner_for_stream, sample_rate, channels)?;
@@ -131,6 +136,7 @@ impl AudioManager {
         let inner_for_decode = self.inner.clone();
         let fft_for_decode = self.fft_state.clone();
         let play_state = self.play_state.clone();
+        let is_finished = self.is_finished.clone();
         let position = self.position.clone();
         let mut planner = FftPlanner::new();
         let fft_plan = planner.plan_fft_forward(FFT_SIZE);
@@ -146,6 +152,7 @@ impl AudioManager {
                     fft_for_decode,
                     cmd_rx,
                     play_state,
+                    is_finished,
                     position,
                     fft_plan,
                     sample_rate as f64,
@@ -167,6 +174,7 @@ impl AudioManager {
         }
         self.cpal_stream = None;
         self.play_state.store(0, Ordering::Release);
+        self.is_finished.store(0, Ordering::Release);
         self.position.store(0.0, Ordering::Release);
     }
 
@@ -237,6 +245,7 @@ impl AudioManager {
         fft_state: Arc<Mutex<Vec<f32>>>,
         cmd_rx: Receiver<Command>,
         state: Arc<AtomicI32>,
+        is_finished: Arc<AtomicI32>,
         position: Arc<AtomicF64>,
         fft_plan: Arc<dyn Fft<f32>>,
         sample_rate: f64,
@@ -353,7 +362,7 @@ impl AudioManager {
         }
 
         state.store(0, Ordering::Release);
-        position.store(0.0, Ordering::Release);
+        is_finished.store(1, Ordering::Release);
     }
 
     fn compute_fft(
@@ -443,9 +452,10 @@ impl AudioManager {
         if let Ok(mut inner) = self.inner.lock() {
             inner.is_muted = mute;
             if mute {
+                inner.volume_before_mute = inner.volume;
                 inner.volume = 0.0;
             } else {
-                inner.volume = 1.0;
+                inner.volume = inner.volume_before_mute;
             }
         }
         Ok(())
@@ -453,6 +463,10 @@ impl AudioManager {
 
     pub fn get_position(&self) -> f64 {
         self.position.load(Ordering::Acquire)
+    }
+
+    pub fn get_is_finished(&self) -> bool {
+        self.is_finished.load(Ordering::Acquire) != 0
     }
 
 }

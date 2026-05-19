@@ -6,7 +6,7 @@ use audio_manager::{AudioManager, AudioState};
 use db::DbState;
 use metadata::{extract_metadata, TrackMetadata};
 use std::sync::{Arc, Mutex};
-use tauri::{Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 pub struct FftState(pub Arc<Mutex<Vec<f32>>>);
 
@@ -38,6 +38,11 @@ async fn odtwarzaj(
         }
         Err(e) => Err(e),
     }
+}
+
+#[tauri::command]
+fn check_finished(state: State<'_, AudioState>) -> bool {
+    state.manager.lock().unwrap().get_is_finished()
 }
 
 #[tauri::command]
@@ -178,6 +183,7 @@ async fn get_all_tracks(
 #[tauri::command]
 async fn scan_folder(
     sciezka: String,
+    app_handle: AppHandle,
     db_state: State<'_, DbState>,
 ) -> Result<(), String> {
     use walkdir::WalkDir;
@@ -194,9 +200,7 @@ async fn scan_folder(
                 if ["mp3", "flac", "wav", "ogg", "m4a"].contains(&ext.as_str()) {
                     let path_str = path.to_string_lossy().to_string();
 
-                    // Wyciągamy metadane
                     if let Ok(meta) = extract_metadata(&path_str) {
-                        // Zapisujemy do bazy
                         let _ = sqlx::query(
                             "INSERT INTO tracks (path, title, artist, duration, format, sample_rate, bitrate)
                              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
@@ -221,7 +225,7 @@ async fn scan_folder(
                 }
             }
         }
-        println!("Skanowanie folderu zakończone: {}", sciezka);
+        let _ = app_handle.emit("scan_complete", ());
     });
 
     Ok(())
@@ -230,8 +234,7 @@ async fn scan_folder(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let handle = app.handle().clone();
             tauri::async_runtime::block_on(async move {
@@ -259,7 +262,8 @@ pub fn run() {
             wycisz,
             clear_library_cmd,
             get_playback_position,
-            get_fft_data
+            get_fft_data,
+            check_finished
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

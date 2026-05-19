@@ -2,6 +2,19 @@
 
 Wszystkie istotne zmiany w tym projekcie będą dokumentowane w tym pliku.
 
+## [0.9.1] - 2026-05-19
+
+### Naprawiono
+- **Błąd głośności po odciszeniu:** `wycisz(false)` przywracało sztywno 100% głośności zamiast poprzedniej wartości. Dodano pole `volume_before_mute` w `Inner` — przy wyciszaniu zapisywana jest aktualna głośność, przy odciszeniu przywracana.
+- **Race Condition przy zakończeniu utworu (EOF):** Wątek dekodera zerował pozycję po EOF, powodując zapętlenie auto-advance. Dodano atomową flagę `is_finished` — pozycja pozostaje nienaruszona, a frontend polluje `check_finished` zamiast polegać na pozycji.
+- **Stan "stopped" w handlePlayDirect:** Dodano stan `isFinished` na frontendzie — kliknięcie Play po zakończeniu utworu poprawnie restartuje odtwarzanie.
+- **Skanowanie folderu:** `scan_folder` emituje teraz zdarzenie `scan_complete` po zakończeniu. Frontend nasłuchuje i odświeża listę natychmiast.
+- **Usunięto martwy kod:** Fizycznie usunięto `PlayerControls.tsx` (pozostałość po Fazie 1) oraz wyrejestrowano nieużywany `tauri-plugin-opener`.
+- **Rozszerzenie dialogu plików:** Dodano `.m4a` i `.aac` do filtrów wyboru plików.
+
+### Zmieniono
+- Edycja Rusta w `Cargo.toml` z `"2021"` na `"2024"`.
+
 ## [0.9.0] - 2026-05-19
 
 ### Zmieniono

@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import "./App.css";
 import { PlayerModule } from "./components/PlayerModule";
 import { PlaylistModule } from "./components/PlaylistModule";
@@ -16,33 +17,45 @@ function App() {
   const [trackInfo, setTrackInfo] = useState<TrackMetadata | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [isFinished, setIsFinished] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deadTracks, setDeadTracks] = useState<Set<string>>(new Set());
   const [allTracks, setAllTracks] = useState<TrackMetadata[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // Auto-advance logic
+  const handleNextRef = useRef<() => void>(() => {});
+
+  // Auto-advance logic — poll is_playback_finished
   useEffect(() => {
     let interval: number;
     if (isPlaying && !isPaused && trackInfo) {
       interval = window.setInterval(async () => {
         try {
-          const pos = await invoke<number>("get_playback_position");
-          // Jeśli jesteśmy na samym końcu (tolerancja 0.5s)
-          if (pos > 0 && trackInfo.duration > 0 && pos >= trackInfo.duration - 0.5) {
-            console.log("Koniec utworu, przechodzę dalej...");
-            handleNext();
+          const finished = await invoke<boolean>("check_finished");
+          if (finished) {
+            setIsFinished(true);
+            setIsPlaying(false);
+            handleNextRef.current();
           }
         } catch (e) {
           console.error("Auto-advance check error:", e);
         }
-      }, 1000);
+      }, 500);
     }
     return () => clearInterval(interval);
-  }, [isPlaying, isPaused, trackInfo, allTracks]);
+  }, [isPlaying, isPaused, trackInfo]);
+
+  // Nasłuch na zdarzenie skanowania
+  useEffect(() => {
+    const unlisten = listen("scan_complete", () => {
+      setRefreshTrigger(prev => prev + 1);
+    });
+    return () => { unlisten.then(fn => fn()); };
+  }, []);
 
   const handleTrackSelect = async (path: string) => {
     setError(null);
+    setIsFinished(false);
     try {
       await invoke("zatrzymaj");
       await invoke("odtwarzaj", { sciezka: path });
@@ -106,6 +119,7 @@ function App() {
       await invoke("zatrzymaj");
       setIsPlaying(false);
       setIsPaused(false);
+      setIsFinished(false);
     } catch (err) {
       setError(String(err));
     }
@@ -114,6 +128,7 @@ function App() {
   const handleNext = () => {
     if (trackInfo) skipToNext(trackInfo.path);
   };
+  handleNextRef.current = handleNext;
 
   const handlePrevious = () => {
     if (!trackInfo || allTracks.length === 0) return;
@@ -127,8 +142,11 @@ function App() {
         await invoke("wznow");
         setIsPaused(false);
         setIsPlaying(true);
+    } else if (isFinished) {
+        setIsFinished(false);
+        await handleTrackSelect(path);
     } else {
-        handleTrackSelect(path);
+        await handleTrackSelect(path);
     }
   }
 
