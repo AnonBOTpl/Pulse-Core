@@ -7,6 +7,15 @@
 
 ---
 
+## 🚀 Pobieranie i Instalacja
+
+Najnowszą wersję aplikacji wraz z dedykowanym instalatorem w mrocznym klimacie cyberpunk możesz pobrać z zakładki Releases:
+
+👉 **[Pobierz instalator PulseCore (.exe)](https://github.com/AnonBOTpl/Pulse-Core/releases/latest)**
+
+1. Pobierz plik `PulseCore_*_x64-setup.exe`.
+2. Uruchom instalator i postępuj zgodnie z instrukcjami.
+
 ## Architektura
 
 ```
