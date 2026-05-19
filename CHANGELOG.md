@@ -2,6 +2,21 @@
 
 Wszystkie istotne zmiany w tym projekcie będą dokumentowane w tym pliku.
 
+## [0.9.2] - 2026-05-19
+
+### Dodano
+- **Fuzja wizualizatora z Steel-Spectrum-Overlay:** Przeniesiono zaawansowaną logikę Canvas 2D z `github.com/AnonBOTpl/Steel-Spectrum-Overlay` — EMA decay, peak indicators, band correction (krzywa wykładnicza), Mirror Mode, Oscilloscope Mode (Bezier), beat detection z glow boost, 5 motywów kolorystycznych.
+- **Natychmiastowe wyciszenie przy pauzie:** `play_state` przekazany do callbacków CPAL — przy pauzie/stopie dane wyjściowe są wypełniane zerami, a ring buffer czyszczony. Zero-delay mute.
+- **Czyszczenie FFTState przy pauzie/stopie:** Backend zeruje bufor FFT (`fft_state.fill(0.0)`) w `Command::Pause` i `stop_current()`.
+
+### Naprawiono
+- **Zamarznięte słupki po pauzie:** Wizualizator zeruje tablice animacji (`displayedBands`, `peaks`) wyłącznie na podstawie stanu React (`isPlaying`/`isPaused`), a nie wartości FFT. Chwilowe cisze w trakcie odtwarzania nie powodują migania (fizyka EMA działa poprawnie).
+- **Lag przy pauzie:** CPAL callback sprawdza `play_state` atomic — przy stanie != 1 (`playing`) natychmiast generuje ciszę zamiast opróżniać ring buffer.
+
+### Zmieniono
+- Refaktoryzacja `VisualizerModule.tsx`: przyjęcie propsów `isPlaying`/`isPaused` z `App.tsx` zamiast samodzielnego wykrywania ciszy po wartościach FFT.
+- Aktualizacja `audio_manager.rs`: `create_output_stream` przyjmuje `play_state: Arc<AtomicI32>` dla wszystkich callbacków.
+
 ## [0.9.1] - 2026-05-19
 
 ### Naprawiono

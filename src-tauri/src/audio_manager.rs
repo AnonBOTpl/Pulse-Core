@@ -130,7 +130,8 @@ impl AudioManager {
         self.is_finished.store(0, Ordering::Release);
 
         let inner_for_stream = self.inner.clone();
-        let stream = Self::create_output_stream(inner_for_stream, sample_rate, channels)?;
+        let ps_for_stream = self.play_state.clone();
+        let stream = Self::create_output_stream(inner_for_stream, ps_for_stream, sample_rate, channels)?;
         self.cpal_stream = Some(stream);
 
         let inner_for_decode = self.inner.clone();
@@ -176,10 +177,14 @@ impl AudioManager {
         self.play_state.store(0, Ordering::Release);
         self.is_finished.store(0, Ordering::Release);
         self.position.store(0.0, Ordering::Release);
+        if let Ok(mut fft) = self.fft_state.lock() {
+            fft.fill(0.0);
+        }
     }
 
     fn create_output_stream(
         inner: Arc<Mutex<Inner>>,
+        play_state: Arc<AtomicI32>,
         sample_rate: u32,
         channels: u16,
     ) -> Result<Stream, String> {
@@ -202,7 +207,12 @@ impl AudioManager {
         let err_fn = |err: cpal::StreamError| eprintln!("CPAL: {}", err);
 
         let inner_f32 = inner.clone();
+        let ps_f32 = play_state.clone();
         let f32_cb = move |data: &mut [f32], _: &OutputCallbackInfo| {
+            if ps_f32.load(Ordering::Acquire) != 1 {
+                data.fill(0.0);
+                return;
+            }
             if let Ok(mut g) = inner_f32.lock() {
                 let vol = g.volume;
                 for s in data.iter_mut() {
@@ -216,8 +226,14 @@ impl AudioManager {
                 .build_output_stream(&config, f32_cb, err_fn, None)
                 .map_err(|e| format!("Failed to build F32 stream: {}", e))?,
             SampleFormat::I16 => {
+                let inner_i16 = inner.clone();
+                let ps_i16 = play_state.clone();
                 let i16_cb = move |data: &mut [i16], _: &OutputCallbackInfo| {
-                    if let Ok(mut g) = inner.lock() {
+                    if ps_i16.load(Ordering::Acquire) != 1 {
+                        data.fill(0);
+                        return;
+                    }
+                    if let Ok(mut g) = inner_i16.lock() {
                         let vol = g.volume;
                         for s in data.iter_mut() {
                             *s = (g.ring.pop_front().unwrap_or(0.0) * vol * i16::MAX as f32) as i16;
@@ -282,6 +298,12 @@ impl AudioManager {
                     }
                     Command::Pause => {
                         state.store(2, Ordering::Release);
+                        if let Ok(mut inner) = inner.lock() {
+                            inner.ring.clear();
+                        }
+                        if let Ok(mut fft) = fft_state.lock() {
+                            fft.fill(0.0);
+                        }
                     }
                     Command::Resume => {
                         state.store(1, Ordering::Release);

@@ -167,7 +167,7 @@ function App() {
         </div>
 
         <div className="grid-area-visualizer">
-          <VisualizerModule />
+          <VisualizerModule isPlaying={isPlaying} isPaused={isPaused} />
         </div>
 
         <div className="grid-area-playlist">

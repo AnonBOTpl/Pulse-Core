@@ -114,6 +114,13 @@ pulsecore/
 
 ---
 
+## Podziękowania
+
+Ten projekt wykorzystuje logikę wizualizacji Canvas 2D zaadaptowaną z:
+- **[Steel-Spectrum-Overlay](https://github.com/AnonBOTpl/Steel-Spectrum-Overlay)** — zaawansowana fizyka słupków (EMA decay, peak indicators), tryby Mirror i Oscilloscope, beat detection oraz system gradientów. Przeniesiono do natywnej architektury Rust+React, całkowicie odrzucając backend Python/WebSocket.
+
+---
+
 ## Licencja
 
 MIT

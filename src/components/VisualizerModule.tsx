@@ -346,11 +346,21 @@ function updateAnimationStep(
   }
 }
 
-export const VisualizerModule = () => {
+interface VisualizerModuleProps {
+  isPlaying: boolean;
+  isPaused: boolean;
+}
+
+export const VisualizerModule = ({ isPlaying, isPaused }: VisualizerModuleProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [mode, setMode] = useState<VisualizerMode>("bars");
   const [themeIndex, setThemeIndex] = useState(0);
   const [showControls, setShowControls] = useState(false);
+
+  const isPlayingRef = useRef(false);
+  const isPausedRef = useRef(false);
+  isPlayingRef.current = isPlaying;
+  isPausedRef.current = isPaused;
 
   const fftDataRef = useRef<number[]>(new Array(FFT_BINS).fill(0));
   const displayedBandsRef = useRef<number[]>(new Array(VISUAL_BARS).fill(0));
@@ -395,6 +405,15 @@ export const VisualizerModule = () => {
       try {
         const raw = await invoke<number[]>("get_fft_data");
         fftDataRef.current = raw;
+
+        if (!isPlayingRef.current || isPausedRef.current) {
+          displayedBandsRef.current.fill(0);
+          targetBandsRef.current.fill(0);
+          peaksRef.current.fill(0);
+          isBeatRef.current = false;
+          return;
+        }
+
         lastUpdateRef.current = Date.now();
 
         const sensitivity = sensitivityRef.current;

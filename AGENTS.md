@@ -115,7 +115,58 @@ Command::Seek(secs) => {
 
 Zawsze **rekreuj decoder** po seeku i **czyść ring buffer**.
 
-### 5. Brak technologii Microsoft
+### 5. Zero-delay pause — play_state w callbacku CPAL
+
+Po wysłaniu `Command::Pause` wątek dekodera natychmiast przestaje dekodować,
+ale callback CPAL (działający na wątku audio OS) wciąż opróżnia ring buffer —
+przy `RING_CAPACITY = 44100 × 8` oznacza to nawet ~8s post-pause audio.
+
+**Rozwiązanie (zaimplementowane):**
+- `create_output_stream` przyjmuje `Arc<AtomicI32>` play_state
+- Każdy callback (`f32_cb` / `i16_cb`) sprawdza `play_state.load() != 1` → natychmiast `data.fill(0.0)` / `data.fill(0)`
+- `Command::Pause` wykonuje `inner.ring.clear()` przy okazji
+
+```rust
+// Wzór — F32 callback:
+let ps = play_state.clone();
+let cb = move |data: &mut [f32], _: &OutputCallbackInfo| {
+    if ps.load(Ordering::Acquire) != 1 {
+        data.fill(0.0);
+        return;
+    }
+    // ... normalny odczyt z ring
+};
+```
+
+### 6. Visual reset — czyszczenie wizualizacji po stanie, nie po FFT
+
+Nigdy nie zeruj tablic wizualizatora na podstawie wartości FFT (chwilowa cisza
+w muzyce to nie pauza). Zerowanie musi być sterowane wyłącznie stanem React:
+
+```typescript
+// VisualizerModule.tsx — poprawny wzorzec:
+const isPlayingRef = useRef(false);
+const isPausedRef = useRef(false);
+isPlayingRef.current = isPlaying; // aktualizowane w każdej renderze
+
+// w pętli pollingu:
+if (!isPlayingRef.current || isPausedRef.current) {
+    displayedBandsRef.current.fill(0);
+    targetBandsRef.current.fill(0);
+    peaksRef.current.fill(0);
+    return; // nie aktualizuje lastUpdateRef
+}
+lastUpdateRef.current = Date.now();
+// ... normalne przetwarzanie FFT ...
+```
+
+Gdy utwór gra (`isPlaying=true, isPaused=false`), nawet przy zerowych danych
+FFT, fizyka EMA steruje opadaniem:
+```
+displayed[i] = displayed[i] * decayFactor + target * (1 - decayFactor)
+```
+
+### 7. Brak technologii Microsoft
 
 Zakaz: C#, .NET, Avalonia, WPF, `DispatcherTimer`.  
 Obsługa czasu: `tokio` w Rust, `setInterval`/`requestAnimationFrame` w JS.
