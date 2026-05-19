@@ -1,4 +1,14 @@
-# CHANGELOG
+# Changelog
+Wszystkie ważne zmiany w projekcie Pulse-Core będą dokumentowane w tym pliku.
+
+## [0.9.4] - 2026-05-19
+### Dodane (Added)
+- Wprowadzono dedykowane, cyberpunkowe grafiki do instalatora NSIS (`header.bmp`, `installer.bmp`).
+- Dodano kompletny, wielorozmiarowy zestaw ikon aplikacji dla systemu Windows (`icon.ico` oraz ikony `.png` od 32x32 do 256x256).
+- Dodano odpowiednie ścieżki zasobów instalatora w pliku `tauri.conf.json`.
+
+### Naprawione (Fixed)
+- Naprawiono błędy kompilatora `makensis` podczas budowania instalatora poprzez integrację grafik bezpośrednio w domyślnym szablonie Tauri v2 (usunięcie nadpisanego skryptu).
 
 ## [0.9.3] — 2026-05-17
 
