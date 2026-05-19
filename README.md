@@ -71,7 +71,7 @@
 
 ```bash
 # 1. Sklonuj repozytorium
-git clone https://github.com/twoja-nazwa/pulsecore.git
+git clone https://github.com/AnonBOTpl/pulsecore.git
 cd pulsecore
 
 # 2. Zainstaluj zależności frontendowe
