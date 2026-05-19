@@ -2,6 +2,27 @@
 
 Wszystkie istotne zmiany w tym projekcie będą dokumentowane w tym pliku.
 
+## [0.9.0] - 2026-05-19
+
+### Zmieniono
+- **Całkowite porzucenie biblioteki BASS:** Silnik audio został w 100% przeniesiony na natywny stos Rust (`symphonia` + `cpal`). Usunięto wszystkie artefakty BASS (`bass.dll`, `build.rs` z kopiowaniem DLL, zależności `bass-rs`). Decyzja wymuszona przez krytyczne błędy `FileOpen` pod Windows — BASS blokował uchwyty plików na poziomie systemowym, uniemożliwiając seek i wielokrotne odtwarzanie.
+
+### Dodano
+- **Nowy natywny silnik audio:** `symphonia` (dekodowanie) + `cpal` (wyjście). Wątek dekodera (`pulse-decode`) wpuszcza próbki PCM do ring buffera, a callback CPAL odczytuje je w czasie rzeczywistym.
+- **FFT z zero-delay volume:** Volume aplikowane w callbacku CPAL (nie w wątku dekodera) — zmiana głośności słyszalna natychmiast. Ring buffer przechowuje surowe próbki.
+- **Wydzielony stan FFT:** `fft_data` w osobnym `Arc<Mutex<Vec<f32>>>` zarządzanym przez Tauri — eliminacja lock contention między `get_fft_data` a komendami audio.
+- **Wizualizacja Canvas w WebView2:** Naprawa renderowania spektrum w natywnym oknie Tauri poprzez: flagi GPU w WebView2 (`--ignore-gpu-blocklist`, `--force-gpu-rasterization`), synchronizację DPR z `ResizeObserver`, separację pętli pollingu FFT (30fps) od pętli renderowania (60fps), oraz `isolation: isolate` dla warstwy kompozycyjnej.
+
+### Naprawiono
+- **Lock contention FFT:** `get_fft_data` czyta teraz z niezależnego `FftState` zamiast blokować `AudioManager` — eliminuje zwracanie zer gdy inna komenda trzyma mutex.
+- **Czarny ekran wizualizacji w WebView2:** Przyczyny: `contain: strict` blokowało `ResizeObserver`, brak `background` na canvasie powodował przezroczystość komponowaną jako czerń, `await invoke()` w RAF gubił klatki.
+- **Wieloutworowe przewijanie (wstecz/w przód):** Seek przez `symphonia` + czyszczenie ring buffera + recreacja dekodera — brak kumulacji starych próbek.
+
+## [0.8.0] - 2026-05-22
+
+### Zmieniono
+- **Migracja z rodio na BASS:** Tymczasowa zmiana silnika w celu wyeliminowania mikro-stutteringu.
+
 ## [0.7.0] - 2026-05-22
 
 ### Dodano

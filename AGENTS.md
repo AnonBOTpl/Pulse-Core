@@ -1,35 +1,161 @@
-# Instrukcje dla Agenta (Google Jules)
+# Instrukcje dla Agenta
 
 ## Kontekst Projektu
-Tworzymy nowoczesny, wysokowydajny odtwarzacz audio. Projekt w całości porzuca środowisko .NET/C# na rzecz wydajnego backendu i lekkiego frontendu webowego.
-Obecny rok: 2026. Bezwzględnie korzystaj z najnowszych, stabilnych wersji bibliotek i frameworków dostępnych na ten moment.
 
-## Stos Technologiczny
-*   **Backend (Rdzeń):** Rust
-*   **Most Komunikacyjny:** Tauri v2+
-*   **Silnik Audio:** `symphonia` (dekodowanie) + `cpal` (odtwarzanie). W 100% natywny Rust, brak zależności FFI/C.
-*   **Baza Danych:** SQLite (obsługiwane asynchronicznie przez `sqlx`)
-*   **Obliczenia FFT:** `rustfft` v6.4.1+ (1024-próbkowe FFT z oknem Hanninga, 256 pasm 0.0–1.0, uruchamiane w wątku dekodera)
-*   **Frontend (UI):** React + TypeScript (Vite) oraz React Three Fiber / WebGL do wizualizacji.
-*   **Stylowanie:** Tailwind CSS (opcjonalnie) oraz dynamiczne zmienne CSS (CSS Custom Properties) do obsługi skórek.
+PulseCore — cyberpunkowy odtwarzacz audio z wizualizacją FFT w czasie rzeczywistym.  
+Backend: Rust (Tauri v2). Frontend: React + TypeScript (Vite).
 
-## Główne Zasady Programowania i Generowania Kodu
-1.  **Brak technologii Microsoftu:** Pod żadnym pozorem nie generuj kodu w C#, nie używaj Avalonia UI, WPF, ani `DispatcherTimer`. Czas i zdarzenia obsługuj asynchronicznie za pomocą środowiska `tokio` w Rust.
-2.  **Zarządzanie stanem (React):** Używaj nowoczesnych wzorców React (Hooks, Context API lub lekkich bibliotek jak Zustand) do synchronizacji stanu odtwarzacza z backendem Rust poprzez Tauri Events.
-3.  **Odseparowanie logiki:** Frontend odpowiada WYŁĄCZNIE za renderowanie UI i animacji. Cała ciężka logika, parsowanie plików, zapytania HTTP (`reqwest`) i przeliczanie częstotliwości odbywa się w języku Rust.
-4.  **Wydajność GPU/CPU:** Przy implementacji wizualizacji (Canvas/WebGL) zawsze dbaj o zdejmowanie obciążenia z GPU (odmontowywanie komponentów lub pauzowanie pętli renderującej), gdy okno jest zminimalizowane.
-5.  **Integracje AI:** Jeśli w ramach rozwoju projektu (np. automatyzacja, asystenci) zostaniesz poproszony o implementację rozwiązań Google AI, **wymagane jest** korzystanie z ujednoliconej biblioteki `google-genai`. Bezwzględnie zakazuje się wykorzystywania jakichkolwiek przestarzałych bibliotek oraz odwoływania się do starszych modeli (w tym całkowity zakaz używania nazw takich jak "Model 1.5 Pro").
-6.  **Czysty stos audio:** Silnik audio opiera się w 100% na natywnych bibliotekach Rust (`symphonia` + `cpal`). Nie ma żadnych zewnętrznych DLL ani zależności FFI. Stare artefakty BASS (`bass.dll`, `build.rs` z kopiowaniem) zostały usunięte.
+**Rok:** 2026. Używaj najnowszych stabilnych wersji bibliotek.
 
-## Architektura i Pętla Audio
-*   **Wątek dekodera:** Osobny wątek (`pulse-decode`) dekoduje plik przez `symphonia` i wpuszcza próbki PCM do współdzielonego bufora cyklicznego (`Mutex<VecDeque<f32>>`).
-*   **Wyjście audio:** `cpal` w callback'u odczytuje próbki z bufora i przekazuje na kartę dźwiękową (format F32 lub I16).
-*   **FFT:** Co ~33ms wątek dekodera wyciąga 1024 ostatnich próbek, aplikuje okno Hanninga, wykonuje FFT przez `rustfft` i zapisuje 256 pasm (0.0–1.0) do stanu współdzielonego.
-*   **Seek:** Wysłanie `Command::Seek` przez kanał `mpsc` → `symphonia` wykonuje `seek(SeekMode::Accurate, ...)` → tworzony jest nowy dekoder → bufor jest czyszczony.
-*   **IPC FFT:** Zadbaj o wysoką przepustowość kanałów IPC podczas wysyłania danych FFT (Float Arrays) z Rusta do Frontendu (najlepiej batchowanie paczek danych w celu utrzymania stałych 60/120 FPS).
+---
 
-## Fazy Rozwoju
-*   [ ] FAZA 1: Odtwarzanie, pauza, stop (Komunikacja Rust <-> Frontend).
-*   [ ] FAZA 2: Baza SQLite, wydobywanie tagów (ID3) asynchronicznie, zarządzanie stanem i playlistą.
-*   [ ] FAZA 3: Minimal Radial Ring (FFT przeliczane w Rust, renderowane w WebGL), System Skórek (CSS Variables).
-*   [ ] FAZA 4: Crossfading, zapytania HTTP (`reqwest`/`scraper`), pobieranie okładek i tekstów, radio internetowe.
+## Stos Technologiczny (aktualny)
+
+| Warstwa | Technologia | Uwagi |
+|---------|------------|-------|
+| Backend | Rust (edition 2024) | W 100% natywny, zero FFI/C |
+| Most | Tauri v2 | Komendy + `State` |
+| Dekodowanie | `symphonia` 0.5+ | MP3, FLAC, WAV, OGG, AAC |
+| Wyjście audio | `cpal` 0.17+ | Callback w czasie rzeczywistym |
+| FFT | `rustfft` 6.4.1+ | 1024 próbki, okno Hanninga, 256 pasm |
+| Baza | SQLite przez `sqlx` | Asynchroniczna, migracje przy starcie |
+| Tagi | `lofty` | Ekstrakcja ID3/metadanych |
+| Frontend | React 19 + TypeScript | Vite, HMR |
+| Wizualizacja | HTML5 Canvas 2D | Bars / Ring, 60fps |
+| Ikony | `lucide-react` | SVG |
+| Stylowanie | CSS Custom Properties | System skórek |
+
+---
+
+## Krytyczne pułapki systemowe (Windows)
+
+### 1. Izolacja procesów w WebView2
+
+WebView2 działa w osobnym procesie (`WebView2.exe`). Ma własną pętlę GPU i throttling.
+
+**Problemy napotkane:**
+- `requestAnimationFrame` może być throttlowany gdy okno traci fokus
+- Canvas z przezroczystym tłem (`clearRect` do `rgba(0,0,0,0)`) komponuje się jako **czarny** w WebView2 — zawsze ustawiaj `background` na elemencie `<canvas>`
+- `getBoundingClientRect()` może zwracać `0x0` dla elementów z `contain: strict` (szczególnie z `size`)
+
+**Rozwiązania wdrożone:**
+- `additionalBrowserArgs: "--enable-accelerated-2d-canvas --ignore-gpu-blocklist --force-gpu-rasterization --disable-gpu-vsync"`
+- CSS `isolation: isolate` na kontenerze wizualizatora
+- `ResizeObserver` zamiast ręcznego pomiaru w RAF
+- Separacja pollingu FFT (setInterval 33ms) od renderowania (RAF)
+
+### 2. Blokowanie uchwytów plików (NTFS)
+
+Windows blokuje pliki otwarte przez inny proces. Problem z BASS: biblioteka utrzymywała uchwyt pliku przez cały czas odtwarzania, uniemożliwiając seek i ponowne otwarcie.
+
+**Rozwiązanie:** `symphonia` otwiera plik, dekoduje do bufora, zamyka. Brak trwałych uchwytów.
+
+### 3. Backpressure ring buffera
+
+Przy `RING_CAPACITY = 44100 * 8` (~8s audio), gdy bufor jest pełny, wątek dekodera czeka:
+
+```rust
+loop {
+    if let Ok(mut inner) = inner.lock() {
+        if inner.ring.len() + raw.len() <= RING_CAPACITY {
+            inner.ring.extend(raw);
+            break;
+        }
+    }
+    thread::sleep(Duration::from_millis(2));
+}
+```
+
+Nie używaj `Condvar` — zbyt agresywne budzenie. Backpressure z `thread::sleep(2ms)` jest wystarczające.
+
+---
+
+## Wzorce projektowe (nie zmieniaj!)
+
+### 1. Volume — aplikacja w callbacku CPAL
+
+Próbki w ringbufferze są **surowne** (bez volume). Volume aplikowane w callbacku:
+
+```rust
+let vol = g.volume;
+for s in data.iter_mut() {
+    *s = g.ring.pop_front().unwrap_or(0.0) * vol;
+}
+```
+
+**Nie** aplikuj volume w wątku dekodera — spowoduje ~8s opóźnienia.
+
+### 2. FFT — osobny stan (lock-free dla frontendu)
+
+`fft_data` jest w osobnym `Arc<Mutex<Vec<f32>>>` zarządzanym przez Tauri jako `FftState`:
+
+```rust
+pub struct FftState(pub Arc<Mutex<Vec<f32>>>);
+```
+
+- `compute_fft()` w wątku dekodera zapisuje do tego stanu
+- `get_fft_data` w Tauri czyta go bezpośrednio — **nigdy nie blokuje** `AudioManager`
+- Frontend polluje co 33ms (setInterval), renderuje co 16ms (RAF)
+
+### 3. Mute + Volume
+
+`set_volume` sprawdza `is_muted` przed zapisem. `wycisz` ustawia volume na 0.0 lub 1.0.
+Callback CPAL czyta `g.volume` — nie sprawdza osobno `is_muted`.
+
+### 4. Seek
+
+```rust
+Command::Seek(secs) => {
+    format.seek(SeekMode::Accurate, SeekTo::Time { time: Time::from(...), track_id: None });
+    decoder = symphonia::default::get_codecs().make(&codec_params, &DecoderOptions::default()).expect(...);
+    total_frames = (pos * sample_rate) as u64;
+    inner.ring.clear();
+}
+```
+
+Zawsze **rekreuj decoder** po seeku i **czyść ring buffer**.
+
+### 5. Brak technologii Microsoft
+
+Zakaz: C#, .NET, Avalonia, WPF, `DispatcherTimer`.  
+Obsługa czasu: `tokio` w Rust, `setInterval`/`requestAnimationFrame` w JS.
+
+---
+
+## Struktura backendu
+
+```
+src-tauri/src/
+├── main.rs              # Entry point (cfg desktop/mobile)
+├── lib.rs               # Rejestracja komend Tauri + FftState + setup DB
+├── audio_manager.rs     # AudioManager, Inner, decoder_thread, compute_fft, CPAL stream
+├── db.rs                # init_db, clear_library
+└── metadata.rs          # extract_metadata, TrackMetadata
+```
+
+### Zarządzanie stanem w Tauri
+
+```
+FftState(Arc<Mutex<Vec<f32>>>)  ← zarządzany osobno, lock-free od AudioManager
+AudioState { manager: Mutex<AudioManager> }  ← główny stan audio
+DbState { pool: SqlitePool }  ← pula połączeń SQLite
+```
+
+### Kluczowe stałe
+
+| Stała | Wartość | Opis |
+|-------|---------|------|
+| `FFT_SIZE` | 1024 | Rozmiar okna FFT |
+| `FFT_BINS` | 256 | Liczba pasm spektrum |
+| `RING_CAPACITY` | 44100 × 8 | ~8s bufora PCM |
+| `POLL_INTERVAL` | 33ms | Interwał pollingu FFT na froncie |
+| `fft_interval` | sample_rate / 30 | Co ~33ms FFT w wątku dekodera |
+
+---
+
+## Fazy Rozwoju (stan: FAZA 3 ukończona)
+
+- [x] FAZA 1: Odtwarzanie, pauza, stop (Rust ↔ Frontend)
+- [x] FAZA 2: Baza SQLite, tagi ID3, biblioteka, playlisty
+- [x] FAZA 3: Wizualizacja FFT (Canvas 2D), system skórek (CSS Variables)
+- [ ] FAZA 4: Crossfading, HTTP (`reqwest`/`scraper`), okładki, radio internetowe
