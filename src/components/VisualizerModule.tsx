@@ -22,6 +22,7 @@ const CORNER_RADIUS = 4;
 const BAR_GAP = 2;
 const BAR_OPACITY = 0.9;
 const GLOW_SPREAD = 8;
+const NOISE_FLOOR = 0.01;
 
 const THEMES: PulseTheme[] = [
   { name: "Neon Cyberpunk", barGradient: ["#ff00ff", "#00ffff"], peakColor: "#ffffff", glowColor: "#bf00ff" },
@@ -420,7 +421,8 @@ export const VisualizerModule = ({ isPlaying, isPaused }: VisualizerModuleProps)
         const correction = bandCorrectionRef.current;
         const corrected = new Array(FFT_BINS);
         for (let i = 0; i < FFT_BINS; i++) {
-          corrected[i] = Math.min(Math.max((raw[i] || 0) * sensitivity * (correction[i] || 1), 0), 1);
+          const v = (raw[i] || 0) * sensitivity * (correction[i] || 1);
+          corrected[i] = v < NOISE_FLOOR ? 0 : Math.min(v, 1);
         }
 
         targetBandsRef.current = downsampleBands(corrected, VISUAL_BARS);

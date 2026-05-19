@@ -129,18 +129,23 @@ impl AudioManager {
         self.play_state.store(1, Ordering::Release);
         self.is_finished.store(0, Ordering::Release);
 
+        let mut planner = FftPlanner::new();
+        let fft_plan = planner.plan_fft_forward(FFT_SIZE);
+
         let inner_for_stream = self.inner.clone();
         let ps_for_stream = self.play_state.clone();
-        let stream = Self::create_output_stream(inner_for_stream, ps_for_stream, sample_rate, channels)?;
+        let fs_for_stream = self.fft_state.clone();
+        let fp_for_stream = fft_plan.clone();
+        let stream = Self::create_output_stream(
+            inner_for_stream, ps_for_stream, fs_for_stream, fp_for_stream,
+            sample_rate, channels,
+        )?;
         self.cpal_stream = Some(stream);
 
         let inner_for_decode = self.inner.clone();
-        let fft_for_decode = self.fft_state.clone();
         let play_state = self.play_state.clone();
         let is_finished = self.is_finished.clone();
         let position = self.position.clone();
-        let mut planner = FftPlanner::new();
-        let fft_plan = planner.plan_fft_forward(FFT_SIZE);
 
         let handle = thread::Builder::new()
             .name("pulse-decode".into())
@@ -150,14 +155,11 @@ impl AudioManager {
                     codec_params,
                     track_id,
                     inner_for_decode,
-                    fft_for_decode,
                     cmd_rx,
                     play_state,
                     is_finished,
                     position,
-                    fft_plan,
                     sample_rate as f64,
-                    channels as usize,
                 );
             })
             .map_err(|e| format!("Thread spawn error: {}", e))?;
@@ -185,6 +187,8 @@ impl AudioManager {
     fn create_output_stream(
         inner: Arc<Mutex<Inner>>,
         play_state: Arc<AtomicI32>,
+        fft_state: Arc<Mutex<Vec<f32>>>,
+        fft_plan: Arc<dyn Fft<f32>>,
         sample_rate: u32,
         channels: u16,
     ) -> Result<Stream, String> {
@@ -206,8 +210,13 @@ impl AudioManager {
 
         let err_fn = |err: cpal::StreamError| eprintln!("CPAL: {}", err);
 
+        let ch = channels as usize;
+
         let inner_f32 = inner.clone();
         let ps_f32 = play_state.clone();
+        let fs_f32 = fft_state.clone();
+        let fp_f32 = fft_plan.clone();
+        let mut fft_accum_f32: Vec<f32> = Vec::with_capacity(FFT_SIZE);
         let f32_cb = move |data: &mut [f32], _: &OutputCallbackInfo| {
             if ps_f32.load(Ordering::Acquire) != 1 {
                 data.fill(0.0);
@@ -219,6 +228,29 @@ impl AudioManager {
                     *s = g.ring.pop_front().unwrap_or(0.0) * vol;
                 }
             }
+            for i in (0..data.len()).step_by(ch) {
+                fft_accum_f32.push(data[i]);
+            }
+            while fft_accum_f32.len() >= FFT_SIZE {
+                let mut buffer: Vec<Complex<f32>> = Vec::with_capacity(FFT_SIZE);
+                for i in 0..FFT_SIZE {
+                    let window = 0.5
+                        * (1.0
+                            - (2.0 * std::f32::consts::PI * i as f32 / (FFT_SIZE - 1) as f32).cos());
+                    buffer.push(Complex::new(fft_accum_f32[i] * window, 0.0));
+                }
+                fft_accum_f32.drain(0..FFT_SIZE);
+                fp_f32.process(&mut buffer);
+                let mut magnitudes = vec![0.0f32; FFT_BINS];
+                let scale = 1.0 / (FFT_SIZE as f32);
+                for i in 0..FFT_BINS.min(FFT_SIZE / 2) {
+                    let mag = (buffer[i].re * buffer[i].re + buffer[i].im * buffer[i].im).sqrt() * scale;
+                    magnitudes[i] = (mag * 12.0).min(1.0);
+                }
+                if let Ok(mut fft) = fs_f32.lock() {
+                    *fft = magnitudes;
+                }
+            }
         };
 
         let stream: Stream = match sample_format {
@@ -228,6 +260,9 @@ impl AudioManager {
             SampleFormat::I16 => {
                 let inner_i16 = inner.clone();
                 let ps_i16 = play_state.clone();
+                let fs_i16 = fft_state.clone();
+                let fp_i16 = fft_plan.clone();
+                let mut fft_accum_i16: Vec<f32> = Vec::with_capacity(FFT_SIZE);
                 let i16_cb = move |data: &mut [i16], _: &OutputCallbackInfo| {
                     if ps_i16.load(Ordering::Acquire) != 1 {
                         data.fill(0);
@@ -237,6 +272,30 @@ impl AudioManager {
                         let vol = g.volume;
                         for s in data.iter_mut() {
                             *s = (g.ring.pop_front().unwrap_or(0.0) * vol * i16::MAX as f32) as i16;
+                        }
+                    }
+                    for i in (0..data.len()).step_by(ch) {
+                        let normalized = data[i] as f32 / i16::MAX as f32;
+                        fft_accum_i16.push(normalized);
+                    }
+                    while fft_accum_i16.len() >= FFT_SIZE {
+                        let mut buffer: Vec<Complex<f32>> = Vec::with_capacity(FFT_SIZE);
+                        for i in 0..FFT_SIZE {
+                            let window = 0.5
+                                * (1.0
+                                    - (2.0 * std::f32::consts::PI * i as f32 / (FFT_SIZE - 1) as f32).cos());
+                            buffer.push(Complex::new(fft_accum_i16[i] * window, 0.0));
+                        }
+                        fft_accum_i16.drain(0..FFT_SIZE);
+                        fp_i16.process(&mut buffer);
+                        let mut magnitudes = vec![0.0f32; FFT_BINS];
+                        let scale = 1.0 / (FFT_SIZE as f32);
+                        for i in 0..FFT_BINS.min(FFT_SIZE / 2) {
+                            let mag = (buffer[i].re * buffer[i].re + buffer[i].im * buffer[i].im).sqrt() * scale;
+                            magnitudes[i] = (mag * 12.0).min(1.0);
+                        }
+                        if let Ok(mut fft) = fs_i16.lock() {
+                            *fft = magnitudes;
                         }
                     }
                 };
@@ -258,22 +317,17 @@ impl AudioManager {
         codec_params: symphonia::core::codecs::CodecParameters,
         track_id: u32,
         inner: Arc<Mutex<Inner>>,
-        fft_state: Arc<Mutex<Vec<f32>>>,
         cmd_rx: Receiver<Command>,
         state: Arc<AtomicI32>,
         is_finished: Arc<AtomicI32>,
         position: Arc<AtomicF64>,
-        fft_plan: Arc<dyn Fft<f32>>,
         sample_rate: f64,
-        _channels: usize,
     ) {
         let mut decoder = symphonia::default::get_codecs()
             .make(&codec_params, &DecoderOptions::default())
             .expect("Failed to create decoder");
 
         let mut total_frames: u64 = 0;
-        let fft_interval = (sample_rate as u64) / 30;
-        let mut frames_since_fft: u64 = 0;
 
         loop {
             if let Ok(cmd) = cmd_rx.try_recv() {
@@ -298,12 +352,7 @@ impl AudioManager {
                     }
                     Command::Pause => {
                         state.store(2, Ordering::Release);
-                        if let Ok(mut inner) = inner.lock() {
-                            inner.ring.clear();
-                        }
-                        if let Ok(mut fft) = fft_state.lock() {
-                            fft.fill(0.0);
-                        }
+                        continue;
                     }
                     Command::Resume => {
                         state.store(1, Ordering::Release);
@@ -311,8 +360,8 @@ impl AudioManager {
                 }
             }
 
-            if state.load(Ordering::Acquire) == 2 {
-                thread::sleep(Duration::from_millis(15));
+            if state.load(Ordering::Acquire) != 1 {
+                thread::sleep(Duration::from_millis(10));
                 continue;
             }
 
@@ -324,36 +373,36 @@ impl AudioManager {
                     match decoder.decode(&packet) {
                         Ok(audio_buf) => {
                             let frames = audio_buf.frames() as u64;
-                            total_frames += frames;
-                            position.store(
-                                total_frames as f64 / sample_rate,
-                                Ordering::Release,
-                            );
-
                             let spec = *audio_buf.spec();
-                            let n_frames = audio_buf.frames() as usize;
                             let n_channels = spec.channels.count() as usize;
+                            let n_frames = frames as usize;
 
                             let mut sample_buf =
                                 SampleBuffer::<f32>::new((n_frames * n_channels) as u64, spec);
                             let _ = sample_buf.copy_interleaved_ref(audio_buf);
                             let raw = sample_buf.samples();
 
-                            // backpressure: block until ring has room
+                            let mut pushed = false;
                             loop {
+                                if state.load(Ordering::Acquire) != 1 {
+                                    break;
+                                }
                                 if let Ok(mut inner) = inner.lock() {
                                     if inner.ring.len() + raw.len() <= RING_CAPACITY {
                                         inner.ring.extend(raw);
+                                        pushed = true;
                                         break;
                                     }
                                 }
                                 thread::sleep(Duration::from_millis(2));
                             }
 
-                            frames_since_fft += frames;
-                            if frames_since_fft >= fft_interval {
-                                frames_since_fft = 0;
-                                Self::compute_fft(&inner, &fft_state, &fft_plan, n_channels);
+                            if pushed {
+                                total_frames += frames;
+                                position.store(
+                                    total_frames as f64 / sample_rate,
+                                    Ordering::Release,
+                                );
                             }
                         }
                         Err(Error::DecodeError(_)) => continue,
@@ -385,53 +434,6 @@ impl AudioManager {
 
         state.store(0, Ordering::Release);
         is_finished.store(1, Ordering::Release);
-    }
-
-    fn compute_fft(
-        inner: &Mutex<Inner>,
-        fft_state: &Mutex<Vec<f32>>,
-        plan: &Arc<dyn Fft<f32>>,
-        channels: usize,
-    ) {
-        let needed = FFT_SIZE * channels;
-        let inner_guard = match inner.lock() {
-            Ok(g) => g,
-            Err(_) => return,
-        };
-
-        if inner_guard.ring.len() < needed {
-            return;
-        }
-
-        let len = inner_guard.ring.len();
-        let start = len - needed;
-
-        let samples: Vec<f32> = inner_guard.ring.iter().skip(start).copied().collect();
-        drop(inner_guard);
-
-        let mut buffer: Vec<Complex<f32>> = Vec::with_capacity(FFT_SIZE);
-
-        for i in 0..FFT_SIZE {
-            let idx = i * channels;
-            let window = 0.5
-                * (1.0
-                    - (2.0 * std::f32::consts::PI * i as f32 / (FFT_SIZE - 1) as f32).cos());
-            let sample = samples.get(idx).copied().unwrap_or(0.0) * window;
-            buffer.push(Complex::new(sample, 0.0));
-        }
-
-        plan.process(&mut buffer);
-
-        let mut magnitudes = vec![0.0f32; FFT_BINS];
-        let scale = 1.0 / (FFT_SIZE as f32);
-        for i in 0..FFT_BINS.min(FFT_SIZE / 2) {
-            let mag = (buffer[i].re * buffer[i].re + buffer[i].im * buffer[i].im).sqrt() * scale;
-            magnitudes[i] = (mag * 12.0).min(1.0);
-        }
-
-        if let Ok(mut fft) = fft_state.lock() {
-            *fft = magnitudes;
-        }
     }
 
     pub fn pauzuj(&self) -> Result<(), String> {

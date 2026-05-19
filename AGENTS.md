@@ -1,212 +1,221 @@
-# Instrukcje dla Agenta
+# Instrukcje dla Agenta — PulseCore
 
-## Kontekst Projektu
+> PulseCore to cyberpunkowy odtwarzacz audio z wizualizacją FFT w czasie rzeczywistym.  
+> Stack: Rust (edition 2024) + Tauri v2 + React 19 + TypeScript + Vite.
 
-PulseCore — cyberpunkowy odtwarzacz audio z wizualizacją FFT w czasie rzeczywistym.  
-Backend: Rust (Tauri v2). Frontend: React + TypeScript (Vite).
+## Stack technologiczny
 
-**Rok:** 2026. Używaj najnowszych stabilnych wersji bibliotek.
+- **Rust edition 2024** — wszystkie CLI i lintery muszą obsługiwać `edition = "2024"`
+- **symphonia 0.5+** — dekodowanie audio (MP3, FLAC, WAV, OGG, AAC) — 100% natywny Rust, zero FFI
+- **cpal 0.17+** — wyjście audio z callbackiem w czasie rzeczywistym
+- **rustfft 6.4.1+** — obliczenia FFT przez `FftPlanner`
+- **sqlx** — asynchroniczna baza SQLite
+- **lofty** — ekstrakcja tagów ID3
+- **Tauri v2** — most IPC z React (komendy, eventy, stan)
+- **React 19** + **TypeScript** + **Vite** — frontend z HMR
+- **CSS Custom Properties** — dynamiczne zmienne do systemu skórek
+- **Lucide React** — ikony SVG
 
----
+## Ważne ścieżki
 
-## Stos Technologiczny (aktualny)
+- Silnik audio: `src-tauri/src/audio_manager.rs`
+- Komendy IPC: `src-tauri/src/lib.rs`
+- Wizualizator: `src/components/VisualizerModule.tsx`
+- Stan odtwarzania: `src/App.tsx` (w tym isPlaying/isPaused/isFinished)
+- Style: `src/App.css`
+- Konfig: `src-tauri/tauri.conf.json`
 
-| Warstwa | Technologia | Uwagi |
-|---------|------------|-------|
-| Backend | Rust (edition 2024) | W 100% natywny, zero FFI/C |
-| Most | Tauri v2 | Komendy + `State` |
-| Dekodowanie | `symphonia` 0.5+ | MP3, FLAC, WAV, OGG, AAC |
-| Wyjście audio | `cpal` 0.17+ | Callback w czasie rzeczywistym |
-| FFT | `rustfft` 6.4.1+ | 1024 próbki, okno Hanninga, 256 pasm |
-| Baza | SQLite przez `sqlx` | Asynchroniczna, migracje przy starcie |
-| Tagi | `lofty` | Ekstrakcja ID3/metadanych |
-| Frontend | React 19 + TypeScript | Vite, HMR |
-| Wizualizacja | HTML5 Canvas 2D | Bars / Ring, 60fps |
-| Ikony | `lucide-react` | SVG |
-| Stylowanie | CSS Custom Properties | System skórek |
+## Pułapki Windows
 
----
+1. **WebView2 Canvas rendering** — Canvas NIE może być przezroczysty.
+   - Tauri okno: `transparent: false`
+   - W tle: `background: #050505`
+   - CSS: `isolation: isolate`
+   - Bez tych ustawień WebView2 renderuje czarny ekran na Windows 10/11.
 
-## Krytyczne pułapki systemowe (Windows)
+2. **Process naming** — Aby podprocesy WebView2 nazywały się "PulseCore" zamiast "Microsoft Edge WebView2":
+   - `tauri.conf.json`: `additionalBrowserArgs: ["--webview-process-program-name=PulseCore", "--title-is-program-name"]`
+   - `browserArgs` nie działa dla nazwy procesu; tylko `additionalBrowserArgs` na WebView2.
 
-### 1. Izolacja procesów w WebView2
+3. **symphonia na Windows** — wymaga `features = ["mp3", "flac", "wav", "ogg", "aac"]` w Cargo.toml.
+   - Zawsze sprawdzaj dostępność kodeków w `supported_codecs()`.
 
-WebView2 działa w osobnym procesie (`WebView2.exe`). Ma własną pętlę GPU i throttling.
+4. **Ścieżki Windows** — `std::path::PathBuf` + `canonicalize()`, nigdy `String` z `/`.
+   - SQLite przechowuje ścieżki jako `TEXT`, ale Rust operuje na `PathBuf`.
 
-**Problemy napotkane:**
-- `requestAnimationFrame` może być throttlowany gdy okno traci fokus
-- Canvas z przezroczystym tłem (`clearRect` do `rgba(0,0,0,0)`) komponuje się jako **czarny** w WebView2 — zawsze ustawiaj `background` na elemencie `<canvas>`
-- `getBoundingClientRect()` może zwracać `0x0` dla elementów z `contain: strict` (szczególnie z `size`)
+## Wzorce
 
-**Rozwiązania wdrożone:**
-- `additionalBrowserArgs: "--enable-accelerated-2d-canvas --ignore-gpu-blocklist --force-gpu-rasterization --disable-gpu-vsync"`
-- CSS `isolation: isolate` na kontenerze wizualizatora
-- `ResizeObserver` zamiast ręcznego pomiaru w RAF
-- Separacja pollingu FFT (setInterval 33ms) od renderowania (RAF)
-
-### 2. Blokowanie uchwytów plików (NTFS)
-
-Windows blokuje pliki otwarte przez inny proces. Problem z BASS: biblioteka utrzymywała uchwyt pliku przez cały czas odtwarzania, uniemożliwiając seek i ponowne otwarcie.
-
-**Rozwiązanie:** `symphonia` otwiera plik, dekoduje do bufora, zamyka. Brak trwałych uchwytów.
-
-### 3. Backpressure ring buffera
-
-Przy `RING_CAPACITY = 44100 * 8` (~8s audio), gdy bufor jest pełny, wątek dekodera czeka:
-
+### Volume w CPAL callback (zero-delay)
 ```rust
+// audio_manager.rs
+let volume = Arc::new(AtomicF32::new(1.0));
+// W callbacku CPAL:
+for sample in data.iter_mut() {
+    *sample = (*sample * vol.load(Ordering::Relaxed)).clamp(-1.0, 1.0);
+}
+```
+
+### FFT w CPAL callback (zero-lag)
+```rust
+// audio_manager.rs
+const FFT_SIZE: usize = 1024;
+
+struct FftAccumState {
+    buffer: Vec<f32>,        // akumulator między-callbackowy
+    index: usize,            // pozycja zapisu w akumulatorze
+    fft_state: Arc<Mutex<Vec<f32>>>,  // wynik FFT (256 pasm)
+}
+// W CPAL callbacku:
+// 1. Dopisz mono próbki do accum.buffer
+// 2. Gdy accum.index >= FFT_SIZE:
+//    - Zastosuj okno Hanninga
+//    - Wykonaj FFT
+//    - Oblicz 256 pasm (mag × 12.0, clamp(1.0))
+//    - Zapisz do fft_state
+//    - accum.index = 0
+
+// W get_fft_data polling:
+// - Pobierz fft_state
+// - Noise gate: if val < 0.01 { val = 0.0 }
+// - Band correction: Math.pow(10, t * 0.8)
+// - Sensitivity scaling
+// - Return do frontendu
+```
+
+### Zero-delay pause
+```rust
+// audio_manager.rs
+let play_state = Arc::new(AtomicU8::new(0));
+// 0 = stopped, 1 = playing, 2 = paused
+
+// W decoder_thread:
 loop {
-    if let Ok(mut inner) = inner.lock() {
-        if inner.ring.len() + raw.len() <= RING_CAPACITY {
-            inner.ring.extend(raw);
-            break;
-        }
+    if ps.load(Ordering::Acquire) == 2 { // paused
+        continue; // freeze dekodera
     }
-    thread::sleep(Duration::from_millis(2));
+    if ps.load(Ordering::Acquire) != 1 { // stopped
+        break;
+    }
+    // dekoduj + push do ringa
+}
+
+// W CPAL callback:
+if ps.load(Ordering::Relaxed) != 1 {
+    data.fill(0.0);
+    return;
 }
 ```
 
-Nie używaj `Condvar` — zbyt agresywne budzenie. Backpressure z `thread::sleep(2ms)` jest wystarczające.
-
----
-
-## Wzorce projektowe (nie zmieniaj!)
-
-### 1. Volume — aplikacja w callbacku CPAL
-
-Próbki w ringbufferze są **surowne** (bez volume). Volume aplikowane w callbacku:
-
+### Visual reset po stanie, nie po FFT
 ```rust
-let vol = g.volume;
-for s in data.iter_mut() {
-    *s = g.ring.pop_front().unwrap_or(0.0) * vol;
-}
+// App.tsx
+// Nie zeruj wizualizacji gdy FFT < progu — ciche fragmenty utworu
+// to resetują. Zamiast tego:
+<VisualizerModule isPlaying={isPlaying} isPaused={isPaused} ... />
+// W VisualizerModule:
+useEffect(() => {
+    if (!isPlaying) {
+        peaks.fill(0);
+        decay.fill(0);
+    }
+}, [isPlaying]);
 ```
 
-**Nie** aplikuj volume w wątku dekodera — spowoduje ~8s opóźnienia.
-
-### 2. FFT — osobny stan (lock-free dla frontendu)
-
-`fft_data` jest w osobnym `Arc<Mutex<Vec<f32>>>` zarządzanym przez Tauri jako `FftState`:
-
+### Backpressure dla decoder_thread
 ```rust
-pub struct FftState(pub Arc<Mutex<Vec<f32>>>);
-```
-
-- `compute_fft()` w wątku dekodera zapisuje do tego stanu
-- `get_fft_data` w Tauri czyta go bezpośrednio — **nigdy nie blokuje** `AudioManager`
-- Frontend polluje co 33ms (setInterval), renderuje co 16ms (RAF)
-
-### 3. Mute + Volume
-
-`set_volume` sprawdza `is_muted` przed zapisem. `wycisz` ustawia volume na 0.0 lub 1.0.
-Callback CPAL czyta `g.volume` — nie sprawdza osobno `is_muted`.
-
-### 4. Seek
-
-```rust
-Command::Seek(secs) => {
-    format.seek(SeekMode::Accurate, SeekTo::Time { time: Time::from(...), track_id: None });
-    decoder = symphonia::default::get_codecs().make(&codec_params, &DecoderOptions::default()).expect(...);
-    total_frames = (pos * sample_rate) as u64;
-    inner.ring.clear();
-}
-```
-
-Zawsze **rekreuj decoder** po seeku i **czyść ring buffer**.
-
-### 5. Zero-delay pause — play_state w callbacku CPAL
-
-Po wysłaniu `Command::Pause` wątek dekodera natychmiast przestaje dekodować,
-ale callback CPAL (działający na wątku audio OS) wciąż opróżnia ring buffer —
-przy `RING_CAPACITY = 44100 × 8` oznacza to nawet ~8s post-pause audio.
-
-**Rozwiązanie (zaimplementowane):**
-- `create_output_stream` przyjmuje `Arc<AtomicI32>` play_state
-- Każdy callback (`f32_cb` / `i16_cb`) sprawdza `play_state.load() != 1` → natychmiast `data.fill(0.0)` / `data.fill(0)`
-- `Command::Pause` wykonuje `inner.ring.clear()` przy okazji
-
-```rust
-// Wzór — F32 callback:
-let ps = play_state.clone();
-let cb = move |data: &mut [f32], _: &OutputCallbackInfo| {
+// audio_manager.rs
+while ring.is_full() {
     if ps.load(Ordering::Acquire) != 1 {
-        data.fill(0.0);
-        return;
+        break; // pauza lub stop — nie czekaj
     }
-    // ... normalny odczyt z ring
-};
-```
-
-### 6. Visual reset — czyszczenie wizualizacji po stanie, nie po FFT
-
-Nigdy nie zeruj tablic wizualizatora na podstawie wartości FFT (chwilowa cisza
-w muzyce to nie pauza). Zerowanie musi być sterowane wyłącznie stanem React:
-
-```typescript
-// VisualizerModule.tsx — poprawny wzorzec:
-const isPlayingRef = useRef(false);
-const isPausedRef = useRef(false);
-isPlayingRef.current = isPlaying; // aktualizowane w każdej renderze
-
-// w pętli pollingu:
-if (!isPlayingRef.current || isPausedRef.current) {
-    displayedBandsRef.current.fill(0);
-    targetBandsRef.current.fill(0);
-    peaksRef.current.fill(0);
-    return; // nie aktualizuje lastUpdateRef
+    spin_sleep::sleep(Duration::from_millis(2));
 }
-lastUpdateRef.current = Date.now();
-// ... normalne przetwarzanie FFT ...
 ```
 
-Gdy utwór gra (`isPlaying=true, isPaused=false`), nawet przy zerowych danych
-FFT, fizyka EMA steruje opadaniem:
-```
-displayed[i] = displayed[i] * decayFactor + target * (1 - decayFactor)
-```
-
-### 7. Brak technologii Microsoft
-
-Zakaz: C#, .NET, Avalonia, WPF, `DispatcherTimer`.  
-Obsługa czasu: `tokio` w Rust, `setInterval`/`requestAnimationFrame` w JS.
-
----
-
-## Struktura backendu
-
-```
-src-tauri/src/
-├── main.rs              # Entry point (cfg desktop/mobile)
-├── lib.rs               # Rejestracja komend Tauri + FftState + setup DB
-├── audio_manager.rs     # AudioManager, Inner, decoder_thread, compute_fft, CPAL stream
-├── db.rs                # init_db, clear_library
-└── metadata.rs          # extract_metadata, TrackMetadata
+### Noise gate dla FFT
+```rust
+// lib.rs (get_fft_data)
+const NOISE_FLOOR: f32 = 0.01;
+for val in data.iter_mut() {
+    if *val < NOISE_FLOOR {
+        *val = 0.0;
+    }
+}
 ```
 
-### Zarządzanie stanem w Tauri
-
-```
-FftState(Arc<Mutex<Vec<f32>>>)  ← zarządzany osobno, lock-free od AudioManager
-AudioState { manager: Mutex<AudioManager> }  ← główny stan audio
-DbState { pool: SqlitePool }  ← pula połączeń SQLite
-```
-
-### Kluczowe stałe
+## Stałe
 
 | Stała | Wartość | Opis |
 |-------|---------|------|
-| `FFT_SIZE` | 1024 | Rozmiar okna FFT |
-| `FFT_BINS` | 256 | Liczba pasm spektrum |
-| `RING_CAPACITY` | 44100 × 8 | ~8s bufora PCM |
-| `POLL_INTERVAL` | 33ms | Interwał pollingu FFT na froncie |
-| `fft_interval` | sample_rate / 30 | Co ~33ms FFT w wątku dekodera |
+| `FFT_SIZE` | 1024 | Rozmiar FFT (próbki) |
+| `NUM_BANDS` | 256 | Liczba pasm wyjściowych |
+| `RING_CAPACITY` | 44100 × 8 | Pojemność ring buffera (~8s audio) |
+| `NOISE_FLOOR` | 0.01 | Próg szumu dla FFT |
+| `POLL_INTERVAL_MS` | 33 | Interwał pollingu FFT (~30fps) |
+| `BACKPRESSURE_SLEEP_MS` | 2 | Czas snu przy pełnym ringu |
+| `BASS_BANDS` | 0..16 | Pasma basowe dla beat detection |
+| `BEAT_THRESHOLD` | 0.6 | Próg wykrycia bitu |
+| `BEAT_DURATION_MS` | 80 | Czas trwania efektu bitu |
 
----
+## Stany atomowe
 
-## Fazy Rozwoju (stan: FAZA 3 ukończona)
+| Zmienna | Typ | Opis |
+|---------|-----|------|
+| `play_state` | `AtomicU8` | 0=stopped, 1=playing, 2=paused |
+| `should_seek` | `AtomicBool` | Flaga seeku (odblokowuje backpressure) |
+| `total_frames` | `AtomicU64` | Liczba ramek wypchniętych do ringa |
+| `current_position` | `AtomicU64` | Pozycja odtwarzania (ramki) |
+| `volume` | `AtomicF32` | Głośność (0.0–1.0) |
+| `is_muted` | `AtomicBool` | Wyciszenie |
+| `fft_data` | `Arc<Mutex<Vec<f32>>>` | Wynik FFT (256 pasm) |
 
-- [x] FAZA 1: Odtwarzanie, pauza, stop (Rust ↔ Frontend)
-- [x] FAZA 2: Baza SQLite, tagi ID3, biblioteka, playlisty
-- [x] FAZA 3: Wizualizacja FFT (Canvas 2D), system skórek (CSS Variables)
-- [ ] FAZA 4: Crossfading, HTTP (`reqwest`/`scraper`), okładki, radio internetowe
+## Komendy IPC
+
+| Komenda | Zwraca | Opis |
+|---------|--------|------|
+| `play(path)` | `Result<()>` | Odtwarzanie pliku |
+| `pause()` | `Result<()>` | Pauza (tylko atomowy stan + cisza) |
+| `resume()` | `Result<()>` | Wznowienie (atomowy stan 2→1) |
+| `stop()` | `Result<()>` | Stop + zerowanie FFT |
+| `seek(position_secs)` | `Result<()>` | Przewijanie (SeekMode::Accurate) |
+| `get_fft_data()` | `Result<Vec<f32>>` | 256 pasm FFT z noise gate + band correction |
+| `check_finished()` | `Result<bool>` | Czy utwór się skończył |
+| `set_volume(volume)` | `Result<()>` | Ustaw głośność (0.0–1.0) |
+| `toggle_mute()` | `Result<()>` | Przełącz wyciszenie |
+| `sync_library(path)` | `Result<()>` | Skanuj folder i dodaj do bazy |
+| `scan_folder(path)` | `Result<Vec<...>>` | Skanuj folder (zwróć pliki) |
+
+## Tryby wizualizacji (VisualizerModule.tsx)
+
+1. **Bars** — klasyczne słupki (bas po lewej, sopran po prawej)
+2. **Mirror** — lustrzane odbicie (center-out)
+3. **Oscilloscope** — fala audio z quadraticCurveTo
+4. **Ring** — okrągłe widmo (radial)
+
+Wszystkie tryby dzielą: EMA decay, peak indicators, band correction, beat detection, noise gate.
+
+## Motywy kolorystyczne (VisualizerModule.tsx)
+
+| Motyw | Tło | Gradient |
+|-------|-----|----------|
+| Neon Cyberpunk | #0a0a1a → #1a0a2e | #ff00ff → #00ffff |
+| Solar Flare | #1a0a00 → #3a1a00 | #ff4400 → #ffaa00 |
+| Matrix Green | #000a00 → #001a00 | #00ff41 → #00ff88 |
+| Arctic Ice | #000a1a → #001a3a | #00ccff → #0088ff |
+| Synthwave Dusk | #1a002a → #2a0040 | #ff00aa → #ff6600 |
+
+## Procesy i wątki
+
+```
+main thread (Tauri) — setup + IPC handlers
+├── decoder_thread ("pulse-decode") — symphonia dekodowanie + push do ringa
+├── CPAL callback thread (audio OS) — odczyt z ringa + FFT + wyjście na kartę
+├── polling loop (33ms setInterval) — IPC get_fft_data → React state
+└── RAF loop (60fps) — Canvas render z decay/peaks/beat
+```
+
+## Proces w Windows
+
+- Proces główny: `PulseCore.exe`
+- Podprocesy WebView2: `PulseCore.exe` (via `--webview-process-program-name=PulseCore`)
+- GPU process, Crashpad, itp. → nazwane jako "PulseCore" w Task Managerze

@@ -23,26 +23,32 @@
 │  │  AudioManager│  │    FFT   │  │      DB      │  │
 │  │ symphonia    │  │ rustfft  │  │    sqlx      │  │
 │  │ + cpal       │  │ Hanning  │  │   SQLite     │  │
-│  └──────────────┘  └──────────┘  └──────────────┘  │
-└─────────────────────────────────────────────────────┘
+│  │ (CPAL callback│  │ akumul. │  │              │  │
+│  │  → FFT inline)│  │ między   │  │              │  │
+│  └──────────────┘  │ callback │  └──────────────┘  │
+└────────────────────┘──────────┘─────────────────────┘
 ```
 
 ### Frontend
 - **React 19** + **TypeScript** — komponenty funkcyjne, hooks, state zarządzany lokalnie
 - **Vite** — szybki bundler deweloperski z HMR
-- **HTML5 Canvas 2D** — wizualizacja spektrum (tryby: słupkowy / pierścień)
+- **HTML5 Canvas 2D** — wizualizacja spektrum (4 tryby: Bars / Mirror / Oscilloscope / Ring)
 - **Lucide React** — ikony SVG
 - **CSS Custom Properties** — dynamiczne zmienne do systemu skórek
 
 ### Backend
 - **Tauri v2** — most komunikacyjny (komendy + stan zarządzany)
 - **symphonia** — dekodowanie audio (MP3, FLAC, WAV, OGG, AAC) — 100% natywny Rust, brak FFI
-- **cpal** — wyjście audio z callbackiem w czasie rzeczywistym
+- **cpal** — wyjście audio z callbackiem w czasie rzeczywistym; FFT liczone inline na buforze wyjściowym
 - **rustfft** — obliczenia FFT (1024 próbek, okno Hanninga, 256 pasm)
 - **sqlx** — asynchroniczna baza SQLite dla biblioteki utworów i metadanych
 - **lofty** — ekstrakcja tagów ID3
 
 ### Kluczowe cechy
+- Zero-lag FFT — obliczane na próbkach wychodzących na kartę dźwiękową (CPAL callback), nie z ring buffera
+- Zero-delay pause — `play_state` atomic w callbackach CPAL, natychmiastowe wyciszenie
+- Fuzja wizualizatora z [Steel-Spectrum-Overlay](https://github.com/AnonBOTpl/Steel-Spectrum-Overlay): EMA decay, peak indicators, Mirror/Oscilloscope/Ring + beat detection
+- Noise floor gate (0.01) — czarne tło przy ciszy, bez statycznych kresek
 - Błyskawiczne przewijanie (seeking) przez `symphonia::SeekMode::Accurate`
 - Volume z zero-delay — aplikowane w callbacku CPAL, nie w wątku dekodera
 - Osobny stan FFT (`Arc<Mutex<Vec<f32>>>`) — zero lock contention z komendami audio
@@ -50,6 +56,7 @@
 - Bento Grid z efektem glassmorphism
 - Auto-advance do następnego utworu
 - Wykrywanie "martwych linków" (Auto-Skip + ghosting)
+- 5 motywów kolorystycznych (Neon Cyberpunk, Solar Flare, Matrix Green, Arctic Ice, Synthwave Dusk)
 
 ---
 
@@ -95,7 +102,7 @@ pulsecore/
 │   ├── components/
 │   │   ├── PlayerModule.tsx      # Panel sterowania
 │   │   ├── PlaylistModule.tsx    # Biblioteka utworów
-│   │   └── VisualizerModule.tsx  # Wizualizator FFT
+│   │   └── VisualizerModule.tsx  # Wizualizator FFT (4 tryby)
 │   ├── App.tsx                   # Główny komponent
 │   ├── App.css                   # Style (Bento Grid + glassmorphism)
 │   └── main.tsx                  # Entry point
@@ -103,10 +110,10 @@ pulsecore/
 │   ├── src/
 │   │   ├── main.rs               # Entry point Tauri
 │   │   ├── lib.rs                # Rejestracja komend + setup
-│   │   ├── audio_manager.rs      # Silnik audio + FFT
+│   │   ├── audio_manager.rs      # Silnik audio + FFT (CPAL callback)
 │   │   ├── db.rs                 # Baza SQLite
 │   │   └── metadata.rs           # Ekstrakcja tagów
-│   ├── tauri.conf.json           # Konfiguracja okna + WebView2
+│   ├── tauri.conf.json           # Konfiguracja okna + WebView2 + browserArgs
 │   └── capabilities/             # Permisje Tauri
 ├── package.json
 └── README.md
